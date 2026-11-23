@@ -19,8 +19,9 @@ not a release-date promise.
   restarts.
 - Private roster lookup by name, class, level, and numeric rank, using saved
   snapshots with stale/unknown-age labels.
-- Opt-in Battle.net character ownership linking with private review and
-  confirmation. Real-player consent is still needed to validate Forever's
+- Opt-in Battle.net character ownership linking with automatic saving after
+  authorization, private access/retention disclosures, and an explicit refresh
+  command. Real-player consent is still needed to validate Forever's
   user-token response on this deployment.
 
 ## Next

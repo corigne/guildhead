@@ -110,9 +110,7 @@ interface PendingLink {
   guildId: string;
   discordUserId: string;
   expiresAt: number;
-  phase: "login" | "exchanging" | "review";
-  reviewed: boolean;
-  link?: CharacterLink;
+  phase: "login" | "exchanging";
 }
 
 export class CharacterLinks {
@@ -144,7 +142,7 @@ export class CharacterLinks {
     if (this.pending.size >= 1_000) throw new CharacterLinkError("Too many pending logins. Try again later.");
     const state = randomBytes(32).toString("base64url");
     this.pending.set(state, {
-      guildId, discordUserId, expiresAt: this.now() + 10 * 60_000, phase: "login", reviewed: false,
+      guildId, discordUserId, expiresAt: this.now() + 10 * 60_000, phase: "login",
     });
     return this.blizzard.authorizationUrl(state);
   }
@@ -166,31 +164,20 @@ export class CharacterLinks {
       if (this.pending.get(state) !== session || session.expiresAt <= this.now()) {
         throw new CharacterLinkError("Login cancelled or expired. Start again in Discord.");
       }
-      session.link = {
+      await this.store.save({
         guildId: session.guildId, discordUserId: session.discordUserId,
         region: this.region, verifiedAt: this.now(), characters,
-      };
-      session.phase = "review";
+      });
+      this.pending.delete(state);
     } catch (error) {
       this.pending.delete(state);
       throw error;
     }
   }
 
-  public async list(guildId: string, userId: string): Promise<{ saved?: CharacterLink; pending?: CharacterLink }> {
+  public list(guildId: string, userId: string): Promise<CharacterLink | undefined> {
     this.prune();
-    const session = [...this.pending.values()].find(entry => entry.guildId === guildId && entry.discordUserId === userId && entry.phase === "review");
-    if (session) session.reviewed = true;
-    const saved = await this.store.get(guildId, userId);
-    return { ...(saved ? { saved } : {}), ...(session?.link ? { pending: session.link } : {}) };
-  }
-
-  public async confirm(guildId: string, userId: string): Promise<void> {
-    this.prune();
-    const session = [...this.pending.values()].find(entry => entry.guildId === guildId && entry.discordUserId === userId && entry.phase === "review");
-    if (!session?.link || !session.reviewed) throw new CharacterLinkError("Use the list subcommand to review your authorized characters before confirming.");
-    this.cancel(guildId, userId);
-    await this.store.save(session.link);
+    return this.store.get(guildId, userId);
   }
 
   public async unlink(guildId: string, userId: string): Promise<boolean> {

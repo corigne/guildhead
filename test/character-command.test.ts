@@ -25,14 +25,14 @@ function interaction(action: string, guildId: string | null = "20") {
   return { value, replies, deferred };
 }
 
-test("advertises guild-only character linking, review, confirmation, and unlinking", () => {
+test("advertises guild-only character linking, viewing, and unlinking without confirmation", () => {
   const command = buildCharacterCommand("toon").toJSON();
   assert.equal(command.name, "toon");
   assert.deepEqual(command.contexts, [0]);
-  assert.deepEqual(command.options?.map(option => option.name), ["link", "list", "confirm", "unlink"]);
+  assert.deepEqual(command.options?.map(option => option.name), ["link", "refresh", "list", "unlink"]);
 });
 
-test("keeps every character action private and requires authorization review before confirmation", async () => {
+test("keeps character actions private and explains scope, retention, limitations, and revocation before authorization", async () => {
   const path = await mkdtemp(join(tmpdir(), "guildhead-character-command-"));
   const links = new CharacterLinks(new CharacterLinkStore(path), {
     authorizationUrl: state => `https://oauth.battle.net/authorize?state=${state}`,
@@ -44,29 +44,40 @@ test("keeps every character action private and requires authorization review bef
     assert.deepEqual(request.deferred, [{ flags: MessageFlags.Ephemeral }]);
     return request.replies;
   };
-  const authorize = async () => {
-    const replies = await run("link");
+  const authorize = async (action: string) => {
+    const replies = await run(action);
     const json = JSON.stringify(replies);
     assert.match(json, /Keep this link private/);
-    assert.match(json, /\/toon confirm/);
+    for (const disclosure of [
+      /wow\.profile/, /10 minutes/, /automatically after authorization/,
+      /Saved links remain until you unlink/, /not automatically refreshed/,
+      /do not receive your password or authenticator codes/,
+      /or save access\/refresh tokens/, /cannot play characters/,
+      /No other feature uses these links yet/, /Revoke app permission separately/,
+      /\/toon list/, /\/toon unlink/, /\/toon refresh/, /failed refresh keeps your saved links/,
+    ]) assert.match(json, disclosure);
+    assert.doesNotMatch(json, /\/toon confirm/);
     const response = replies[0] as Exclude<typeof replies[number], string>;
+    assert.ok(response.content.length <= 2000);
     assert.deepEqual(response.allowedMentions, { parse: [] });
+    assert.ok(response.content.indexOf("**Before you authorize**") < response.content.indexOf("<https:"));
+    assert.ok(response.content.indexOf("Revoke app permission") < response.content.indexOf("<https:"));
     const url = new URL(response.content.match(/<(https:[^>]+)>/)![1]!);
     await links.callback(url.searchParams.get("state")!, "code");
   };
   try {
-    assert.match(JSON.stringify(await run("list")), /No pending/);
-    assert.match(JSON.stringify(await run("confirm")), /review your/);
-    await authorize();
-    const pending = await run("list");
-    assert.match(JSON.stringify(pending), /Review before linking/);
-    assert.match(JSON.stringify(pending), /Anvil/);
-    assert.match(JSON.stringify(await run("confirm")), /are linked/);
+    assert.match(JSON.stringify(await run("list")), /No linked characters/);
+    await authorize("link");
+    const saved = await run("list");
+    assert.match(JSON.stringify(saved), /Anvil/);
+    assert.match(JSON.stringify(saved), /dated check/);
     assert.match(JSON.stringify(await run("list")), /Linked guild characters/);
-    await authorize();
-    assert.match(JSON.stringify(await run("list")), /Review before linking.*Linked guild characters/);
+    await authorize("refresh");
+    assert.match(JSON.stringify(await run("list")), /Linked guild characters/);
     assert.match(JSON.stringify(await run("unlink")), /pending logins are removed/);
     assert.match(JSON.stringify(await run("obsolete")), /Unknown character action/);
+    for (let index = 0; index < 1_000; index += 1) links.start("21", String(index + 1));
+    assert.match(JSON.stringify(await run("refresh")), /Too many pending logins/);
   } finally { await rm(path, { recursive: true }); }
 });
 

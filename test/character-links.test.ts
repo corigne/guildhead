@@ -38,29 +38,34 @@ test("stores only scoped character links, preserves other owners, and recovers a
   } finally { await rm(path, { recursive: true }); }
 });
 
-test("requires private Discord review and confirmation before retaining only owned guild characters", async () => {
+test("automatically retains only owned guild characters for the requesting Discord user and server", async () => {
   const path = await mkdtemp(join(tmpdir(), "guildhead-links-"));
   const store = new CharacterLinkStore(path);
-  const links = new CharacterLinks(store, client, roster, "us");
+  let ownedIds = new Set(["1", "999"]);
+  let now = 1_000;
+  const links = new CharacterLinks(store, {
+    ...client, ownedCharacters: async () => ownedIds,
+  }, roster, "us", () => now);
   try {
     const state = nonce(links.start("20", "30"));
     await links.callback(state, "code");
-    assert.equal(await store.get("20", "30"), undefined);
+    const savedLink = await store.get("20", "30");
+    assert.deepEqual(savedLink?.characters, [{ id: "1", name: "Pepper Oni" }]);
+    assert.deepEqual(await new CharacterLinkStore(path).get("20", "30"), savedLink);
     await assert.rejects(links.callback(state, "replay"), /already used/);
-    await assert.rejects(links.confirm("20", "30"), /review/);
-    assert.deepEqual(await links.list("21", "30"), {});
-    assert.deepEqual(await links.list("20", "31"), {});
-    const preview = await links.list("20", "30");
-    assert.deepEqual(preview.pending?.characters, [{ id: "1", name: "Pepper Oni" }]);
-    await links.confirm("20", "30");
-    assert((await links.list("20", "30")).saved);
-    await assert.rejects(links.confirm("20", "30"), /review/);
+    assert.equal(await links.list("21", "30"), undefined);
+    assert.equal(await links.list("20", "31"), undefined);
+    assert.deepEqual(await links.list("20", "30"), savedLink);
+    ownedIds = new Set(["2"]);
+    now = 2_000;
     await links.callback(nonce(links.start("20", "30")), "new-code");
-    const both = await links.list("20", "30");
-    assert(both.saved && both.pending);
-    await links.confirm("20", "30");
+    const refreshed = await links.list("20", "30");
+    assert.deepEqual(refreshed?.characters, [{ id: "2", name: "Someone Else" }]);
+    assert.equal(refreshed?.verifiedAt, 2_000);
+    await assert.rejects(links.callback(nonce(links.start("20", "30")), null), /declined/);
+    assert.deepEqual(await links.list("20", "30"), refreshed);
     assert.equal(await links.unlink("20", "30"), true);
-    assert.deepEqual(await links.list("20", "30"), {});
+    assert.equal(await links.list("20", "30"), undefined);
     const saved = await readFile(join(path, "character-links.json"), "utf8");
     assert(!saved.includes("999"));
   } finally { await rm(path, { recursive: true }); }
@@ -105,12 +110,12 @@ test("fails closed on absent rosters, mismatched ownership, and upstream errors 
   } finally { await rm(path, { recursive: true }); }
 });
 
-test("unlink and expiry cancel an in-flight exchange, and expired review cannot be confirmed", async () => {
+test("unlink, replacement, and expiry cancel in-flight exchanges while saved links outlast login sessions", async () => {
   const path = await mkdtemp(join(tmpdir(), "guildhead-links-"));
   const store = new CharacterLinkStore(path);
   let now = 1_000;
   try {
-    for (const cancel of ["unlink", "expire"] as const) {
+    for (const cancel of ["unlink", "replace", "expire"] as const) {
       const entered = Promise.withResolvers<void>();
       const release = Promise.withResolvers<void>();
       const links = new CharacterLinks(store, {
@@ -119,6 +124,7 @@ test("unlink and expiry cancel an in-flight exchange, and expired review cannot 
       const work = links.callback(nonce(links.start("20", "30")), "code");
       await entered.promise;
       if (cancel === "unlink") await links.unlink("20", "30");
+      else if (cancel === "replace") links.start("20", "30");
       else now += 600_000;
       release.resolve();
       await assert.rejects(work, /cancelled or expired/);
@@ -126,9 +132,8 @@ test("unlink and expiry cancel an in-flight exchange, and expired review cannot 
     }
     const links = new CharacterLinks(store, client, roster, "us", () => now);
     await links.callback(nonce(links.start("20", "30")), "code");
-    await links.list("20", "30");
     now += 600_000;
-    await assert.rejects(links.confirm("20", "30"), /review/);
+    assert.deepEqual((await links.list("20", "30"))?.characters, link.characters);
   } finally { await rm(path, { recursive: true }); }
 });
 

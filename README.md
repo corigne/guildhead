@@ -28,7 +28,7 @@ and Wowhead links.
 - Private roster lookup by character name, class, level, and rank
 - Guild-maintained crafter directory with find, register, and remove commands
 - Server-scoped crafter listings with multiple characters per profession
-- Opt-in Battle.net character ownership checks with private review and confirmation
+- Opt-in Battle.net character ownership checks with automatic linking after authorization
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Updated LFG announcements and leader DMs when players join or leave
 - Exact-name matching to avoid unrelated search results
@@ -145,8 +145,8 @@ silently storing or displaying partial data.
 /lfg close group:<group ID>
 /roster name:<optional> class:<optional> level:<optional> rank:<optional>
 /character link
+/character refresh
 /character list
-/character confirm
 /character unlink
 ```
 
@@ -177,15 +177,21 @@ normal Discord channels, the command response appears directly.
 
 ### Character ownership
 
-`/character link` privately starts Battle.net authorization. After consent,
-return to Discord and run `/character list` to review the matching guild
-characters, then `/character confirm` to save them. `/character unlink` removes
-your saved links and cancels pending logins.
+`/character link` privately explains access, retention, and revocation before
+showing the Battle.net authorization URL. After consent, matching guild
+characters are saved automatically. `/character list` shows the saved names
+and check time; `/character unlink` removes them and cancels pending logins.
 
-Only characters belonging to the authorized account and present in the saved
-guild roster are retained. The bot does not save access tokens, BattleTags, or
+The sign-in URL expires after ten minutes, not the saved links. Saved ownership
+checks remain until unlinked and can become stale. `/character refresh` starts
+a new Battle.net check and replaces the snapshot only on success. No tokens
+are stored, so ownership cannot be silently refreshed in the background.
+
+Blizzard returns the account's WoW character list, but only characters present
+in the saved guild roster are retained. The bot does not save access tokens, BattleTags, or
 unrelated alts. Proof is dated, not a promise of permanent ownership; it does not
-grant Discord roles or mark crafter professions as verified.
+grant Discord roles or mark crafter professions as verified. No other feature
+consumes these links yet; verified profession lookup is planned.
 
 Setup, tested API support, and limitations are in the
 [character-linking guide](docs/character-linking.md).

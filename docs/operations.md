@@ -53,7 +53,7 @@ Compose mounts a named volume at `/data`. It contains:
 | `guild-roster-<guild-slug>.json` | Confirmed members, pending observations, last successful stored poll time |
 | `crafters.json` | Self-registered crafter listings |
 | `lfg.json` | LFG groups and announcement tracking |
-| `character-links.json` | Confirmed ownership links; no access tokens |
+| `character-links.json` | Dated ownership checks; no access tokens |
 
 Keep the volume when replacing a container. `docker compose down -v` removes
 it; do not use that command for routine upgrades.
@@ -98,7 +98,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.8.0`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.9.0`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 

@@ -35,12 +35,20 @@ webhook URLs.
 Character linking is opt-in. The player authorizes `wow.profile` at Battle.net.
 An access token is used in memory to retrieve owned character IDs; it is not
 persisted. Only IDs and names matching the saved guild roster, region, Discord
-server/user IDs, and verification time are saved, after private review and
-confirmation in Discord. BattleTags, Battle.net account IDs, and unrelated alts
-are not retained. Pending logins and previews expire after ten minutes or a
-restart. `/character unlink` removes that user's saved link in the current
+server/user IDs, and verification time are saved automatically after successful
+authorization. Blizzard returns the WoW character list, including unrelated
+alts; those unrelated entries, BattleTags, and Battle.net account IDs are not
+retained. Guildhead never receives passwords or authenticator codes and does
+not save access or refresh tokens. Pending logins expire after ten minutes or a
+restart; saved links have no automatic expiry and remain until unlinked.
+Ownership checks can become stale. `/character refresh` requires a new
+Battle.net authorization flow and replaces saved links only after a successful
+check; ownership is not refreshed in the background.
+`/character unlink` removes that user's saved link in the current
 server and cancels pending logins; it does not revoke the app at Battle.net.
 Battle.net permissions can be revoked separately in account settings.
+Unlinking does not remove copies in operator-managed backups; those follow the
+operator's backup retention policy.
 
 LFG state stores the Discord server ID, group ID, leader and member user IDs,
 activity name, capacity, expiry time, and announcement channel/message/webhook

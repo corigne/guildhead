@@ -73,33 +73,58 @@ Battle.net, not a proxy error.
 
 ## Linking a character
 
-1. Run `/character link` in the configured Discord server.
+1. Run `/character link` in the configured Discord server. Read the private
+   access, retention, and revocation explanation before opening the URL.
 2. Open the private link and authorize your own Battle.net account.
-3. Return to Discord and run `/character list`. Check the character names.
-4. Run `/character confirm` to save, or `/character unlink` to cancel.
+3. Matching guild characters are saved automatically. Return to Discord and
+   run `/character list` to view them, or `/character unlink` to remove them.
 
-Links expire after ten minutes and work once. New login attempts invalidate
+The browser callback shows a WoW-themed status page with next steps. It loads
+no external assets or scripts and never displays authorization codes or tokens.
+It reports success only after the matched characters have been saved.
+
+Sign-in URLs expire after ten minutes and work once. New login attempts invalidate
 previous attempts by the same Discord user/server. State is bound to the
 requesting user and server, but the authorization URL must still stay private.
-Discord review is required before confirmation, so a browser callback alone
-cannot attach characters to an account.
+Successful authorization saves to the Discord user and server that started the
+flow. Never forward a sign-in URL or authorize one somebody else sends you.
 
 Only characters present in both the authorized account and the confirmed
 guild snapshot are saved. A recent join may need two roster polls to appear.
 Other alts, BattleTags, Battle.net account IDs, and access/refresh tokens are not
-stored. Pending authorization disappears after restart. Saved links survive
-restart and are removed by `/character unlink`; Battle.net app access can be
-revoked separately in the player's account settings.
+stored. Pending authorization disappears after restart. Saved links have no
+automatic expiry and survive restarts until removed by `/character unlink`.
+Operator-managed backups have their own retention policy. Unlinking does not
+revoke Battle.net app permission; revoke that separately in account settings.
 
 Ownership is a dated check, not permanent attestation. This feature does not
 grant roles, continuously revalidate transfers, or verify crafter professions.
-Re-run the flow to refresh proof. Other Discord servers cannot use the bot's
-configured guild roster for linking.
+Use `/character refresh` to start another private Battle.net authorization flow.
+It replaces the saved character snapshot and check time only on success; failed,
+denied, or expired refreshes preserve the last good proof. No tokens are stored,
+so Guildhead cannot silently recheck ownership in the background. Public roster
+and profession data can be refreshed separately, but cannot prove continued
+ownership. Other Discord servers cannot use the bot's configured guild roster
+for linking. No other feature consumes saved links yet; verified profession
+lookup is planned.
+
+Battle.net's documented authorization-code flow returns an expiring access
+token, not a renewable offline credential. A
+[Blizzard developer-forum discussion](https://us.forums.blizzard.com/en/blizzard/t/oauth-api-refresh-token/559)
+also reports that refresh tokens are unavailable. Do not promise unattended
+ownership renewal or confuse renewable app-only roster access with player
+authorization.
+
+The requested `wow.profile` scope permits reading WoW profile data, not playing
+characters, making purchases, or changing Battle.net account settings. Guildhead
+uses it only for the character-list request and never receives the player's
+password or authenticator codes. It does not grant Discord roles or verify
+profession claims.
 
 ## Verification
 
 Automated tests cover user-token contracts, denied scopes, account mismatches,
-state replacement/replay/expiry, server isolation, review and confirmation,
+state replacement/replay/expiry, server isolation, automatic saving and refresh,
 unlink during an in-flight exchange, storage failures, and the real HTTP
 listener. Fixtures are not a substitute for one real consent round-trip.
 Never paste authorization codes, state URLs, or user tokens into an issue.

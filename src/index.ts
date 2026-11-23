@@ -261,7 +261,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           name: `/${config.characterCommandName}`,
           value:
             "`link`: authorize your own Battle.net account\n" +
-            "`list|confirm|unlink`: review, save, or remove your guild-character links",
+            "`refresh|list|unlink`: recheck, view, or remove your guild-character links; authorization saves them automatically",
         },
         {
           name: "Automatic tooltips",
