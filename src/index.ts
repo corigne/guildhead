@@ -28,6 +28,8 @@ import {
   professions,
   type Profession,
 } from "./crafter-directory.js";
+import { LfgDirectory } from "./lfg-directory.js";
+import { buildLfgCommand, handleLfgCommand } from "./lfg-command.js";
 
 const config = loadConfig();
 const configuredWebhook = config.webhookUrl
@@ -35,6 +37,8 @@ const configuredWebhook = config.webhookUrl
   : undefined;
 const channelWebhooks = new Map<string, WebhookClient>();
 const crafterDirectory = new CrafterDirectory(config.dataDir);
+const lfgDirectory = new LfgDirectory(config.dataDir);
+const lfgCommand = buildLfgCommand(config.lfgCommandName);
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -173,9 +177,10 @@ client.once(Events.ClientReady, async (readyClient) => {
       wowCommand.toJSON(),
       helpCommand.toJSON(),
       craftCommand.toJSON(),
+      lfgCommand.toJSON(),
     ]);
     console.log(
-      `Registered /${config.commandName}, /${config.helpCommandName}, and /${config.craftCommandName} commands`,
+      `Registered /${config.commandName}, /${config.helpCommandName}, /${config.craftCommandName}, and /${config.lfgCommandName} commands`,
     );
   } catch (error) {
     console.error("Could not register Discord commands:", error);
@@ -270,6 +275,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
             "`remove profession`: remove your listing",
         },
         {
+          name: `/${config.lfgCommandName}`,
+          value:
+            "`create activity size?`: start a two-hour group\n" +
+            "`list`: active groups in this server\n" +
+            "`show|join|leave|close group`: manage a group by ID",
+        },
+        {
           name: "Automatic tooltips",
           value:
             "Use `[Exact Name]` in a configured WoW-linked channel. " +
@@ -285,6 +297,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
       embeds: [help],
       flags: MessageFlags.Ephemeral,
     });
+    return;
+  }
+
+  if (interaction.commandName === config.lfgCommandName) {
+    await handleLfgCommand(
+      interaction,
+      lfgDirectory,
+      config.lfgCommandName,
+      async (embed) => {
+        const response = {
+          embeds: [embed],
+          allowedMentions: { parse: [] as never[] },
+        };
+        if (config.channelIds.has(interaction.channelId)) {
+          if (interaction.channel?.type !== ChannelType.GuildText) {
+            throw new Error("LFG announcements need a guild text channel");
+          }
+          await (await webhookForChannel(interaction.channel)).send(response);
+        } else {
+          await interaction.followUp(response);
+        }
+      },
+    );
     return;
   }
 

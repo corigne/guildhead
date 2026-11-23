@@ -1,9 +1,10 @@
 # Privacy policy
 
-Effective date: November 22, 2026
+Effective date: November 23, 2026
 
-Guildhead processes messages only in Discord channel IDs configured by the
-operator.
+Guildhead scans messages only in Discord channel IDs configured by the
+operator. Slash commands may be used in other channels where the application
+is available; LFG commands require a server.
 
 ## Data processed
 
@@ -24,6 +25,15 @@ registering Discord user ID, character name, profession, optional notes, and
 update time until the user removes that listing. Operational logs may contain
 Discord message IDs, character names and error details, but not bot tokens or
 webhook URLs.
+
+LFG state stores the Discord server ID, group ID, leader and member user IDs,
+activity name, capacity, and expiry time in the operator's data directory.
+Groups are visible only through commands in their originating server. A group
+creation announcement is public in the invoking channel; other LFG responses
+are private. Leaving removes that user from the stored group; closing removes
+the group. Groups expire after two hours and are pruned from storage on the
+next successful LFG command. Previously posted Discord announcements remain
+subject to the server's message-retention policy.
 
 ## Third parties
 

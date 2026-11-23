@@ -1,7 +1,7 @@
 # Guildhead
 
-Guildhead enriches World of Warcraft guild-chat messages synced into Discord
-with automatic Wowhead tooltip cards.
+Guildhead adds World of Warcraft tooltips, guild-roster announcements, crafter
+lookup, and lightweight group finding to Discord.
 
 [![CI](https://github.com/corigne/guildhead/actions/workflows/ci.yml/badge.svg)](https://github.com/corigne/guildhead/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -26,6 +26,7 @@ and Wowhead links.
 - `/wow` search command usable in any Discord channel
 - Confirmed guild join and rank-change announcements from Blizzard roster data
 - Guild-maintained crafter directory with find, register, and remove commands
+- Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Exact-name matching to avoid unrelated search results
 - 24-hour lookup cache to reduce Wowhead traffic
 - Docker and Docker Compose deployment
@@ -47,6 +48,7 @@ back into WoW.
    - View Channels
    - Read Message History
    - Manage Webhooks
+   - Send Messages and Embed Links (for normal announcement channels)
 5. Invite the bot to the server.
 6. Enable Discord developer mode and copy each WoW-linked channel ID.
 
@@ -123,6 +125,12 @@ silently storing or displaying partial data.
 /craft find profession:<profession>
 /craft register character:<name> profession:<profession> notes:<optional>
 /craft remove profession:<profession>
+/lfg create activity:<dungeon, quest, or raid> size:<optional, default 5>
+/lfg list
+/lfg show group:<group ID>
+/lfg join group:<group ID>
+/lfg leave group:<group ID>
+/lfg close group:<group ID>
 ```
 
 Discord advertises the command description, query argument, and database
@@ -140,9 +148,28 @@ stored in the configured data directory and associate a Discord user ID with a
 character name, profession, and optional notes. Users can replace or remove
 their own listings.
 
-The command returns the top Wowhead result. In a WoW-linked channel, Guildhead
+`/wow` returns the top Wowhead result. In a WoW-linked channel, Guildhead
 posts through its managed webhook and acknowledges the command privately. In
 normal Discord channels, the command response appears directly.
+
+### Lightweight group finding
+
+`/lfg create activity:Deadmines size:5` creates a group with the leader included
+in its size and posts a public announcement in the current channel. WoW-linked
+channels use the managed webhook. All command acknowledgements and subsequent
+LFG responses are private; no automatic role pings or in-game messages are sent.
+
+Use the group ID from that announcement with `/lfg join`, `/lfg show`, or
+`/lfg leave`. Announcements are snapshots, not live-updating rosters; `/lfg show`
+always returns current membership. Only the leader can close a group, and a
+leader leaving closes it. Groups expire exactly two hours after creation.
+One person can lead one active group per server, with at most ten active groups
+per server and 2-40 members per group. These are Discord sign-ups, not verified
+in-game characters, online status, or reserved dungeon spots.
+
+Groups survive restarts in `GUILDHEAD_DATA_DIR` (default `/data`). Closed groups
+are removed immediately; expired groups are pruned on the next successful LFG
+command. Set `DISCORD_LFG_COMMAND_NAME` to rename `/lfg` when another bot uses it.
 
 ## Run with Docker Compose
 
@@ -165,6 +192,7 @@ docker run -d \
   --name guildhead \
   --restart unless-stopped \
   --env-file .env \
+  --mount source=guildhead_data,target=/data \
   ghcr.io/corigne/guildhead:latest
 ```
 
@@ -179,8 +207,8 @@ npm test
 
 `npm test` enforces 100% line, branch, and function coverage across source
 modules. `src/index.ts` is excluded as the Discord process composition root;
-its command and integration behavior is exercised through the underlying
-tested modules.
+LFG command handling and slash-command definitions are tested directly. Live
+Discord transport and process wiring are outside this unit-coverage claim.
 
 ## Security
 
