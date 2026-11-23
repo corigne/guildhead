@@ -48,3 +48,91 @@ test("expands quest cards without clipping long text", async () => {
   assert.equal(metadata.width, 640);
   assert.ok((metadata.height ?? 0) >= 360);
 });
+
+test("renders item icons and wraps oversized words", async () => {
+  const originalFetch = globalThis.fetch;
+  const icon = await sharp({
+    create: {
+      width: 8,
+      height: 8,
+      channels: 3,
+      background: "#ff0000",
+    },
+  }).jpeg().toBuffer();
+  globalThis.fetch = async () =>
+    new Response(icon, {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+
+  try {
+    const image = await buildTooltipCard({
+      kind: "item",
+      name: "Extremely Long Sword Name That Wraps",
+      icon: "INV_Sword_04",
+      quality: 4,
+      description:
+        `Use: ${"Supercalifragilisticexpialidocious".repeat(8)}\nRequires level 60\n+10 Strength`,
+      matches: [
+        {
+          flavor: "forever",
+          id: 99,
+          url: "https://www.wowhead.com/forever/item=99/test",
+        },
+      ],
+    });
+    assert.equal((await sharp(image).metadata()).width, 640);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("renders a fallback body and rejects missing matches", async () => {
+  const image = await buildTooltipCard({
+    kind: "npc",
+    name: "Innkeeper",
+    matches: [
+      {
+        flavor: "forever",
+        id: 1,
+        url: "https://www.wowhead.com/forever/npc=1/innkeeper",
+      },
+    ],
+  });
+  assert.ok(image.length > 1_000);
+
+  await assert.rejects(
+    buildTooltipCard({
+      kind: "item",
+      name: "Missing",
+      icon: "not-valid!",
+      matches: [],
+    }),
+    /without a Wowhead match/,
+  );
+});
+
+test("surfaces icon download failures", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("", { status: 503 });
+
+  try {
+    await assert.rejects(
+      buildTooltipCard({
+        kind: "item",
+        name: "Broken Icon",
+        icon: "inv_sword_04",
+        matches: [
+          {
+            flavor: "forever",
+            id: 2,
+            url: "https://www.wowhead.com/forever/item=2/broken",
+          },
+        ],
+      }),
+      /icon fetch failed with HTTP 503/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

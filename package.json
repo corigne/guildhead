@@ -1,6 +1,6 @@
 {
   "name": "guildhead",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "description": "Discord bot that enriches synced World of Warcraft guild chat with Wowhead tooltips.",
   "license": "MIT",
@@ -22,7 +22,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "test": "npm run test:coverage",
+    "test:unit": "npm run build && node --test --test-concurrency=1 dist/test/*.test.js",
+    "test:coverage": "npm run build && node --experimental-test-coverage --test-coverage-include='dist/src/**/*.js' --test-coverage-exclude='dist/src/index.js' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 --test --test-concurrency=1 dist/test/*.test.js"
   },
   "dependencies": {
     "discord.js": "14.28.1",

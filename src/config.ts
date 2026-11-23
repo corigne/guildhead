@@ -14,8 +14,10 @@ export interface Config {
   webhookUrl?: string;
   commandName: string;
   helpCommandName: string;
+  craftCommandName: string;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
+  dataDir: string;
   guildRoster?: GuildRosterConfig;
 }
 
@@ -109,7 +111,7 @@ export function parseCommandName(
   return commandName;
 }
 
-function parseGuildRosterConfig(): GuildRosterConfig | undefined {
+function parseGuildRosterConfig(dataDir: string): GuildRosterConfig | undefined {
   const clientId = process.env.BLIZZARD_CLIENT_ID?.trim();
   const clientSecret = readOptionalSecret("BLIZZARD_CLIENT_SECRET");
   if (!clientId && !clientSecret) {
@@ -158,7 +160,7 @@ function parseGuildRosterConfig(): GuildRosterConfig | undefined {
     announcementChannelId,
     events: events as GuildRosterConfig["events"],
     pollMinutes,
-    dataDir: process.env.GUILDHEAD_DATA_DIR?.trim() || "/data",
+    dataDir,
   };
 }
 
@@ -170,10 +172,16 @@ export function loadConfig(): Config {
     "help",
     "DISCORD_HELP_COMMAND_NAME",
   );
+  const craftCommandName = parseCommandName(
+    process.env.DISCORD_CRAFT_COMMAND_NAME,
+    "craft",
+    "DISCORD_CRAFT_COMMAND_NAME",
+  );
+  const dataDir = process.env.GUILDHEAD_DATA_DIR?.trim() || "/data";
   const flavors = parseFlavors(
     process.env.WOWHEAD_FLAVORS?.trim() || "forever",
   );
-  const guildRoster = parseGuildRosterConfig();
+  const guildRoster = parseGuildRosterConfig(dataDir);
 
   if (channelIds.size === 0) {
     throw new Error("DISCORD_CHANNEL_IDS must contain at least one channel ID");
@@ -181,9 +189,9 @@ export function loadConfig(): Config {
   if (flavors.length === 0) {
     throw new Error("WOWHEAD_FLAVORS must contain at least one flavor");
   }
-  if (commandName === helpCommandName) {
+  if (new Set([commandName, helpCommandName, craftCommandName]).size !== 3) {
     throw new Error(
-      "DISCORD_COMMAND_NAME and DISCORD_HELP_COMMAND_NAME must be different",
+      "Discord command names must be different",
     );
   }
 
@@ -194,8 +202,10 @@ export function loadConfig(): Config {
       : {}),
     commandName,
     helpCommandName,
+    craftCommandName,
     channelIds,
     flavors,
+    dataDir,
     ...(guildRoster ? { guildRoster } : {}),
   };
 }

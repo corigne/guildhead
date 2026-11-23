@@ -14,7 +14,7 @@ export interface WowheadResponse {
   files: { attachment: Buffer; name: string }[];
 }
 
-async function addEntity(
+export async function addEntity(
   response: WowheadResponse,
   entity: WowheadEntity,
 ): Promise<void> {

@@ -19,8 +19,11 @@ cached in process memory for 24 hours and disappear when the process restarts.
 When guild-roster monitoring is enabled, Guildhead stores a local roster
 snapshot containing character IDs, names, classes, levels and numeric guild
 ranks. This state is used only to detect changes and remains under the
-self-hosting operator's control. Operational logs may contain Discord message
-IDs, character names and error details, but not bot tokens or webhook URLs.
+self-hosting operator's control. Crafter directory registrations store the
+registering Discord user ID, character name, profession, optional notes, and
+update time until the user removes that listing. Operational logs may contain
+Discord message IDs, character names and error details, but not bot tokens or
+webhook URLs.
 
 ## Third parties
 

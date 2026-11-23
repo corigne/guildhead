@@ -23,7 +23,7 @@ function statePath(config: GuildRosterConfig): string {
   );
 }
 
-async function loadState(
+export async function loadRosterState(
   config: GuildRosterConfig,
 ): Promise<RosterState | undefined> {
   try {
@@ -59,7 +59,7 @@ async function loadState(
   }
 }
 
-async function saveState(
+export async function saveRosterState(
   config: GuildRosterConfig,
   state: RosterState,
 ): Promise<void> {
@@ -72,7 +72,10 @@ async function saveState(
   await rename(temporaryPath, path);
 }
 
-function eventEmbed(config: GuildRosterConfig, event: RosterEvent): EmbedBuilder {
+export function buildRosterEventEmbed(
+  config: GuildRosterConfig,
+  event: RosterEvent,
+): EmbedBuilder {
   const fields = [
     { name: "Character", value: event.member.name, inline: true },
     { name: "Class", value: event.member.className, inline: true },
@@ -134,22 +137,25 @@ function eventEmbed(config: GuildRosterConfig, event: RosterEvent): EmbedBuilder
 }
 
 export class GuildRosterMonitor {
-  private readonly blizzard: BlizzardClient;
+  private readonly blizzard: Pick<BlizzardClient, "guildRoster">;
   private running = false;
 
   public constructor(
     private readonly discord: Client,
     private readonly config: GuildRosterConfig,
+    blizzard?: Pick<BlizzardClient, "guildRoster">,
   ) {
-    this.blizzard = new BlizzardClient(config);
+    this.blizzard = blizzard ?? new BlizzardClient(config);
   }
 
-  public start(): void {
-    void this.poll();
-    setInterval(
-      () => void this.poll(),
+  public start(): NodeJS.Timeout {
+    void this.pollOnce();
+    const timer = setInterval(
+      this.pollOnce.bind(this),
       this.config.pollMinutes * 60 * 1000,
     );
+    timer.unref();
+    return timer;
   }
 
   private async announcementChannel(): Promise<SendableChannels> {
@@ -164,7 +170,7 @@ export class GuildRosterMonitor {
     return channel;
   }
 
-  private async poll(): Promise<void> {
+  public async pollOnce(): Promise<void> {
     if (this.running) {
       console.warn("Skipping overlapping guild roster poll");
       return;
@@ -173,9 +179,9 @@ export class GuildRosterMonitor {
 
     try {
       const currentMembers = await this.blizzard.guildRoster();
-      const previousState = await loadState(this.config);
+      const previousState = await loadRosterState(this.config);
       if (!previousState) {
-        await saveState(this.config, initialRosterState(currentMembers));
+        await saveRosterState(this.config, initialRosterState(currentMembers));
         console.log(
           `Initialized ${this.config.guildName} roster with ${currentMembers.length} members`,
         );
@@ -191,13 +197,13 @@ export class GuildRosterMonitor {
         const channel = await this.announcementChannel();
         for (const event of events) {
           await channel.send({
-            embeds: [eventEmbed(this.config, event)],
+            embeds: [buildRosterEventEmbed(this.config, event)],
             allowedMentions: { parse: [] },
           });
         }
       }
 
-      await saveState(this.config, result.state);
+      await saveRosterState(this.config, result.state);
       console.log(
         `Checked ${this.config.guildName} roster: ${currentMembers.length} members, ${events.length} announcements`,
       );

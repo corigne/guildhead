@@ -3,25 +3,6 @@ import type { RosterMember } from "./roster-state.js";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
-interface TokenResponse {
-  access_token?: string;
-  expires_in?: number;
-}
-
-interface BlizzardRosterResponse {
-  members?: Array<{
-    character?: {
-      id?: number;
-      name?: string;
-      surname?: string;
-      slug?: string;
-      level?: number;
-      playable_class?: { id?: number };
-    };
-    rank?: number;
-  }>;
-}
-
 const CLASS_NAMES: Readonly<Record<number, string>> = {
   1: "Warrior",
   2: "Paladin",
@@ -33,6 +14,88 @@ const CLASS_NAMES: Readonly<Record<number, string>> = {
   9: "Warlock",
   11: "Druid",
 };
+
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+export function parseBlizzardToken(
+  value: unknown,
+): { accessToken: string; expiresIn: number } {
+  const token = record(value, "Battle.net token response");
+  if (
+    typeof token.access_token !== "string" ||
+    token.access_token.length === 0 ||
+    typeof token.expires_in !== "number" ||
+    !Number.isFinite(token.expires_in) ||
+    token.expires_in <= 0
+  ) {
+    throw new Error("Battle.net token response was incomplete");
+  }
+  return {
+    accessToken: token.access_token,
+    expiresIn: token.expires_in,
+  };
+}
+
+export function parseBlizzardRoster(value: unknown): RosterMember[] {
+  const roster = record(value, "Blizzard guild roster response");
+  if (!Array.isArray(roster.members)) {
+    throw new Error("Blizzard guild roster response had no members array");
+  }
+
+  return roster.members.map((rawEntry) => {
+    const entry = record(rawEntry, "Blizzard guild roster member");
+    const character = record(
+      entry.character,
+      "Blizzard guild roster character",
+    );
+    const classReference =
+      character.playable_class === undefined
+        ? undefined
+        : record(
+            character.playable_class,
+            "Blizzard playable class reference",
+          );
+    if (
+      typeof character.id !== "number" ||
+      !Number.isInteger(character.id) ||
+      typeof character.name !== "string" ||
+      character.name.length === 0 ||
+      (character.surname !== undefined &&
+        typeof character.surname !== "string") ||
+      typeof character.slug !== "string" ||
+      character.slug.length === 0 ||
+      typeof character.level !== "number" ||
+      !Number.isInteger(character.level) ||
+      typeof entry.rank !== "number" ||
+      !Number.isInteger(entry.rank) ||
+      (classReference?.id !== undefined &&
+        (typeof classReference.id !== "number" ||
+          !Number.isInteger(classReference.id)))
+    ) {
+      throw new Error("Blizzard guild roster contained an invalid member");
+    }
+
+    const classId = classReference?.id;
+    return {
+      id: character.id.toString(),
+      name: [character.name, character.surname]
+        .filter(Boolean)
+        .join(" "),
+      slug: character.slug,
+      level: character.level,
+      className:
+        classId !== undefined
+          ? (CLASS_NAMES[classId] ?? `Class ${classId}`)
+          : "Unknown class",
+      rank: entry.rank,
+    };
+  });
+}
 
 export function slugifyGuildName(name: string): string {
   return name
@@ -72,13 +135,10 @@ export class BlizzardClient {
       );
     }
 
-    const token = (await response.json()) as TokenResponse;
-    if (!token.access_token || !token.expires_in) {
-      throw new Error("Battle.net token response was incomplete");
-    }
-    this.accessToken = token.access_token;
-    this.tokenExpiresAt = Date.now() + token.expires_in * 1000;
-    return token.access_token;
+    const token = parseBlizzardToken(await response.json());
+    this.accessToken = token.accessToken;
+    this.tokenExpiresAt = Date.now() + token.expiresIn * 1000;
+    return token.accessToken;
   }
 
   public async guildRoster(): Promise<RosterMember[]> {
@@ -114,34 +174,6 @@ export class BlizzardClient {
       );
     }
 
-    const roster = (await response.json()) as BlizzardRosterResponse;
-    if (!Array.isArray(roster.members)) {
-      throw new Error("Blizzard guild roster response had no members array");
-    }
-
-    return roster.members.map((entry) => {
-      const character = entry.character;
-      if (
-        !character?.id ||
-        !character.name ||
-        !character.slug ||
-        character.level === undefined ||
-        entry.rank === undefined
-      ) {
-        throw new Error("Blizzard guild roster contained an invalid member");
-      }
-      const classId = character.playable_class?.id;
-      return {
-        id: character.id.toString(),
-        name: [character.name, character.surname].filter(Boolean).join(" "),
-        slug: character.slug,
-        level: character.level,
-        className:
-          classId !== undefined
-            ? (CLASS_NAMES[classId] ?? `Class ${classId}`)
-            : "Unknown class",
-        rank: entry.rank,
-      };
-    });
+    return parseBlizzardRoster(await response.json());
   }
 }

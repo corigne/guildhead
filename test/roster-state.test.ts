@@ -41,3 +41,25 @@ test("confirms rank changes without losing member metadata", () => {
   ]);
   assert.deepEqual(second.state.members[member.id], promoted);
 });
+
+test("cancels transient changes and confirms departures", () => {
+  const member = {
+    id: "1",
+    name: "Anvil",
+    slug: "anvil",
+    level: 60,
+    className: "Warrior",
+    rank: 2,
+  };
+  const initial = initialRosterState([member]);
+  const missingOnce = reconcileRoster(initial, []);
+  assert.deepEqual(missingOnce.events, []);
+  assert.equal(missingOnce.state.observations["leave:1"], 1);
+
+  const returned = reconcileRoster(missingOnce.state, [member]);
+  assert.deepEqual(returned.state.observations, {});
+  const missingAgain = reconcileRoster(returned.state, []);
+  const departed = reconcileRoster(missingAgain.state, []);
+  assert.deepEqual(departed.events, [{ type: "leaves", member }]);
+  assert.deepEqual(departed.state.members, {});
+});

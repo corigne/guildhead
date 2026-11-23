@@ -59,6 +59,107 @@ interface TooltipResponse {
   tooltip?: string;
 }
 
+function apiRecord(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function optionalString(
+  value: unknown,
+  label: string,
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a string`);
+  }
+  return value;
+}
+
+function optionalNumber(
+  value: unknown,
+  label: string,
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number`);
+  }
+  return value;
+}
+
+export function parseWowheadSearchEntries(value: unknown): SearchEntry[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Wowhead search results must be an array");
+  }
+  return value.map((rawEntry, index) => {
+    const entry = apiRecord(rawEntry, `Wowhead search result ${index}`);
+    const parsed: SearchEntry = {};
+    const typeId = optionalNumber(
+      entry.typeId,
+      `Wowhead search result ${index} typeId`,
+    );
+    if (typeId !== undefined) {
+      parsed.typeId = typeId;
+    }
+    const rawMetadata =
+      entry.lvjson === undefined
+        ? undefined
+        : apiRecord(entry.lvjson, `Wowhead search result ${index} metadata`);
+    if (rawMetadata) {
+      const metadata: NonNullable<SearchEntry["lvjson"]> = {};
+      const fields = [
+        ["name", optionalString] as const,
+        ["displayName", optionalString] as const,
+        ["title", optionalString] as const,
+        ["level", optionalNumber] as const,
+        ["reqlevel", optionalNumber] as const,
+        ["quality", optionalNumber] as const,
+      ];
+      for (const [field, parser] of fields) {
+        const fieldValue = parser(
+          rawMetadata[field],
+          `Wowhead search result ${index} ${field}`,
+        );
+        if (fieldValue !== undefined) {
+          Object.assign(metadata, { [field]: fieldValue });
+        }
+      }
+      parsed.lvjson = metadata;
+    }
+    const url = optionalString(
+      entry.url,
+      `Wowhead search result ${index} URL`,
+    );
+    if (url !== undefined) {
+      parsed.url = url;
+    }
+    return parsed;
+  });
+}
+
+export function parseWowheadTooltip(value: unknown): TooltipResponse {
+  const tooltip = apiRecord(value, "Wowhead tooltip response");
+  const parsed: TooltipResponse = {};
+  const name = optionalString(tooltip.name, "Wowhead tooltip name");
+  const icon = optionalString(tooltip.icon, "Wowhead tooltip icon");
+  const html = optionalString(tooltip.tooltip, "Wowhead tooltip HTML");
+  if (name !== undefined) {
+    parsed.name = name;
+  }
+  if (icon !== undefined) {
+    parsed.icon = icon;
+  }
+  if (html !== undefined) {
+    parsed.tooltip = html;
+  }
+  return parsed;
+}
+
 function normalize(value: string): string {
   return value.trim().toLocaleLowerCase("en-US");
 }
@@ -162,8 +263,9 @@ export function extractTopResults(html: string): SearchEntry[] {
     } else if (character === "]") {
       depth -= 1;
       if (depth === 0) {
-        const parsed: unknown = JSON.parse(html.slice(start, index + 1));
-        return Array.isArray(parsed) ? (parsed as SearchEntry[]) : [];
+        return parseWowheadSearchEntries(
+          JSON.parse(html.slice(start, index + 1)),
+        );
       }
     }
   }
@@ -305,7 +407,9 @@ function mergeEntities(entities: readonly WowheadEntity[]): WowheadEntity[] {
   return [...merged.values()];
 }
 
-async function enrichEntity(entity: WowheadEntity): Promise<WowheadEntity> {
+export async function enrichEntity(
+  entity: WowheadEntity,
+): Promise<WowheadEntity> {
   const primaryMatch = entity.matches[0];
   if (!primaryMatch) {
     return entity;
@@ -334,7 +438,7 @@ async function enrichEntity(entity: WowheadEntity): Promise<WowheadEntity> {
     );
   }
 
-  const tooltip = (await response.json()) as TooltipResponse;
+  const tooltip = parseWowheadTooltip(await response.json());
   const text = tooltip.tooltip ? tooltipToText(tooltip.tooltip) : "";
   const description =
     normalize(text).startsWith(normalize(entity.name))

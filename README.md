@@ -25,6 +25,7 @@ and Wowhead links.
 - Multiple tooltip cards grouped into one Discord message
 - `/wow` search command usable in any Discord channel
 - Confirmed guild join and rank-change announcements from Blizzard roster data
+- Guild-maintained crafter directory with find, register, and remove commands
 - Exact-name matching to avoid unrelated search results
 - 24-hour lookup cache to reduce Wowhead traffic
 - Docker and Docker Compose deployment
@@ -110,22 +111,34 @@ Supported events are `joins`, `leaves`, and `ranks`. Rank names are not
 provided by the Forever API, so rank announcements use numeric values. The
 first successful poll creates a baseline and never emits historical joins.
 
+Blizzard OAuth, roster, Wowhead search, and Wowhead tooltip responses are
+validated at runtime. Guildhead rejects malformed upstream payloads instead of
+silently storing or displaying partial data.
+
 ## Commands
 
 ```text
 /wow query:<name> database:<optional database>
 /help
+/craft find profession:<profession>
+/craft register character:<name> profession:<profession> notes:<optional>
+/craft remove profession:<profession>
 ```
 
 Discord advertises the command description, query argument, and database
 choices in its slash-command picker. `/help` privately shows Guildhead's
 commands, arguments, automatic-tooltip syntax, and configured databases.
-Guildhead also advertises both active command names in its Discord activity.
+Guildhead also advertises its help and lookup command names in Discord activity.
 
 Set `DISCORD_COMMAND_NAME=guildhead` to use `/guildhead` instead when another
 bot already owns `/wow`. Set `DISCORD_HELP_COMMAND_NAME=guildhead-help` when
 `/help` also overlaps. Changing either setting replaces the previously
 registered commands after Guildhead restarts.
+
+Set `DISCORD_CRAFT_COMMAND_NAME` to rename `/craft`. Crafter registrations are
+stored in the configured data directory and associate a Discord user ID with a
+character name, profession, and optional notes. Users can replace or remove
+their own listings.
 
 The command returns the top Wowhead result. In a WoW-linked channel, Guildhead
 posts through its managed webhook and acknowledges the command privately. In
@@ -163,6 +176,11 @@ Requires Node.js 24.17 or newer.
 npm ci
 npm test
 ```
+
+`npm test` enforces 100% line, branch, and function coverage across source
+modules. `src/index.ts` is excluded as the Discord process composition root;
+its command and integration behavior is exercised through the underlying
+tested modules.
 
 ## Security
 
