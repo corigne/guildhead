@@ -59,7 +59,7 @@ function sendPage(response: ServerResponse, commandName: string, rolesEnabled: b
     ${status === 200 ? `<ol aria-label="Manage your links in Discord">
       <li>Return to your Discord server.</li>
       <li>Run <code>${command} main</code> to choose your main character and enable synced crafter listings.</li>
-      <li>${rolesEnabled ? "Your main sets your class role; profession roles include your linked alts. Guildhead manages these roles automatically." : "Class and profession role assignment is awaiting server-operator setup. Your main and profession data can still be saved."}</li>
+      <li>${rolesEnabled ? "Your main sets your class role; primary profession roles include your linked alts. Cooking, Fishing, and First Aid do not assign roles. Guildhead manages these roles automatically." : "Class and primary profession role assignment is awaiting server-operator setup. Your main and profession data can still be saved."}</li>
       <li>Run <code>${command} list</code> to view your linked characters.</li>
       <li>Open your server's <strong>#roles</strong> channel for Tank/Healer/DPS, region, pronouns, and experience preferences. Ask an officer about guild-rank roles.</li>
       <li>Run <code>${command} unlink</code> to remove your character links.</li>

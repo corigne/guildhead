@@ -5,7 +5,8 @@ import type { CharacterLink } from "./character-links.js";
 import { professionNames } from "./professions.js";
 
 const managedNames = [...new Set([...Object.values(CLASS_NAMES), ...Object.values(professionNames)])];
-const professionRoleNames = new Set<string>(Object.values(professionNames));
+const secondaryProfessionNames = new Set<string>(["Cooking", "Fishing", "First Aid"]);
+const professionRoleNames = new Set<string>(Object.values(professionNames).filter(name => !secondaryProfessionNames.has(name)));
 const dangerousPermissions =
   PermissionFlagsBits.Administrator | PermissionFlagsBits.ManageRoles |
   PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageChannels |
@@ -25,7 +26,7 @@ export class DiscordCharacterRoles {
       const matches = available.filter(role => role.name.toLowerCase() === name.toLowerCase());
       if (matches.size > 1) throw new Error(`Duplicate class/profession role: ${name}`);
       let role = matches.first();
-      if (!role && createMissing) {
+      if (!role && createMissing && !secondaryProfessionNames.has(name)) {
         role = await guild.roles.create({
           name, permissions: [], mentionable: false, reason: "Guildhead character role setup",
         });
@@ -49,7 +50,9 @@ export class DiscordCharacterRoles {
     const main = characters.find(character => character.id === link.mainCharacterId);
     if (main && roles.has(main.className)) desired.add(roles.get(main.className)!.id);
     for (const character of characters) {
-      for (const profession of character.professions) desired.add(roles.get(profession.name)!.id);
+      for (const profession of character.professions) {
+        if (professionRoleNames.has(profession.name)) desired.add(roles.get(profession.name)!.id);
+      }
     }
     await this.apply(guild, link.discordUserId, roles, desired, characters.some(character => character.professionsUnavailable));
   }

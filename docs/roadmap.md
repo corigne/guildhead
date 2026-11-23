@@ -24,7 +24,8 @@ not a release-date promise.
   command. Real-player consent is still needed to validate Forever's
   user-token response on this deployment.
 - Private main-character selection, API-backed profession skills, and optional
-  main-class/profession roles. Skills refresh about every six hours; ownership
+  main-class/primary-profession roles. Secondary skills stay searchable without
+  assigning roles. Skills refresh about every six hours; ownership
   still requires explicit Battle.net authorization. Existing class roles are
   reused, and unrelated Carl-bot preference roles remain untouched.
 

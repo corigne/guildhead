@@ -189,7 +189,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.11.0`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.11.1`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
@@ -228,6 +228,12 @@ v1.11 adds a separate command-post reference file. Older releases ignore it;
 the pinned Discord messages remain. Restore references with the volume when
 migrating the same bot so it reuses its existing guides. Host-local channel
 configuration and welcome templates still require separate backups.
+
+v1.11.1 assigns only primary profession roles. Reconciliation removes prior
+Cooking, Fishing, and First Aid assignments from opted-in members, including
+when some alt data is unavailable. Their Discord role definitions and synced
+skill/search data remain. Downgrading can reassign these roles; volume rollback
+does not undo Discord member changes.
 
 Character linking adds a separate file and leaves existing roster, LFG, and
 crafter data alone. See the [linking guide](character-linking.md) for callback

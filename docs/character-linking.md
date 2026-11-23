@@ -128,7 +128,10 @@ not verify arbitrary recipe claims or current availability.
 ## Discord roles
 
 The selected main supplies one class role. All linked, confirmed guild
-characters contribute profession roles, deduplicated across alts. Enable role
+characters contribute primary profession roles, deduplicated across alts.
+Cooking, Fishing, and First Aid stay in skill snapshots and crafter searches
+but do not assign roles. Reconciliation removes their legacy assignments from
+opted-in members without deleting the Discord role definitions. Enable role
 sync only after enabling **Server Members Intent** in Developer Portal ->
 Guildhead -> Bot -> Privileged Gateway Intents, granting Manage Roles, and
 placing Guildhead above the class/profession roles. Set
@@ -143,8 +146,8 @@ Guildhead is authoritative for class/profession roles of users who select a
 main. Member-update events reconcile conflicting assignments (including
 Carl-bot reactions), with a ten-minute periodic fallback. It changes individual
 managed roles rather than replacing the member's complete role list.
-If any linked character's professions are unavailable, known profession roles
-can be added but existing profession roles are not removed based on missing
+If any linked character's professions are unavailable, known primary profession
+roles can be added but existing primary profession roles are not removed based on missing
 data. Class-role reconciliation still works. Full profession reconciliation
 resumes after the next successful complete refresh.
 Unlinked users remain outside this authority. Other Carl-bot preferences stay

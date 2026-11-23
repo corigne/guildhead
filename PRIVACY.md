@@ -65,12 +65,15 @@ profession skills. Previously linked users are not published until they
 select a main. Manual recipe notes remain self-reported.
 
 When enabled by the operator, role sync uses the selected main's class and all
-linked guild characters' professions. Member-update events and periodic
+linked guild characters' primary professions. Cooking, Fishing, and First Aid
+remain in skill snapshots and searches but do not assign roles. Legacy secondary
+profession role assignments are removed during reconciliation; role definitions
+are preserved. Member-update events and periodic
 reconciliation keep only those managed role assignments consistent; unrelated
 roles are not changed. This requires Server Members Intent and exposes Discord
 member/role metadata to the bot, not private messages or online presence.
 Unavailable public profession data is marked explicitly, not treated as proof
-that a character has no professions. Existing profession roles are preserved
+that a character has no professions. Existing primary profession roles are preserved
 while any linked character's data is unavailable.
 `/character unlink` removes that user's saved link in the current
 server, stops synced crafter listings, cancels pending logins, and attempts to

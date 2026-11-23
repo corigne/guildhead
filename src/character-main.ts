@@ -25,7 +25,7 @@ export function mainPicker(link: CharacterLink, page: number) {
     new ButtonBuilder().setCustomId(id(page + 1)).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page === last),
   ));
   return {
-    content: `**Choose your main character** (page ${page + 1}/${last + 1}). This enables API-backed crafter listings in this server. Your main determines your class role; profession roles include all linked guild characters when the operator enables role sync. Other #roles preferences stay unchanged.`,
+    content: `**Choose your main character** (page ${page + 1}/${last + 1}). This enables API-backed crafter listings in this server. Your main determines your class role; primary profession roles include all linked guild characters when the operator enables role sync. Cooking, Fishing, and First Aid do not assign roles. Other #roles preferences stay unchanged.`,
     components, allowedMentions: { parse: [] as never[] },
   };
 }
@@ -53,7 +53,7 @@ export async function handleCharacterMain(
       const link = (await links.list(guildId, userId))!;
       const name = link.characters.find(character => character.id === characterId)!.name;
       await interaction.editReply({
-        content: `Main character: **${escapeMarkdown(name)}**. Available profession data is synced. ${sync.rolesEnabled ? "Class and known profession roles are updated; unavailable data never removes profession roles." : "Role assignment is awaiting server-operator setup."}`,
+        content: `Main character: **${escapeMarkdown(name)}**. Available profession data is synced. ${sync.rolesEnabled ? "Class and known primary profession roles are updated; unavailable data preserves existing primary profession roles." : "Role assignment is awaiting server-operator setup."}`,
         components: [], allowedMentions: { parse: [] },
       });
     } else {

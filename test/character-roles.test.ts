@@ -10,8 +10,11 @@ const link: CharacterLink = {
   characters: [{ id: "1", name: "Anvil" }, { id: "2", name: "Alt" }],
   mainCharacterId: "1", rolesManaged: true,
   profile: { checkedAt: 2_000, characters: [
-    { id: "1", name: "Anvil", className: "Warrior", professions: [{ name: "Blacksmithing", skill: 131, maxSkill: 150 }] },
-    { id: "2", name: "Alt", className: "Mage", professions: [{ name: "Cooking", skill: 225, maxSkill: 225 }, { name: "Blacksmithing", skill: 100, maxSkill: 150 }] },
+    { id: "1", name: "Anvil", className: "Warrior", professions: [{ name: "Blacksmithing", skill: 131, maxSkill: 150 }, { name: "Mining", skill: 148, maxSkill: 225 }] },
+    { id: "2", name: "Alt", className: "Mage", professions: [
+      { name: "Cooking", skill: 225, maxSkill: 225 }, { name: "Fishing", skill: 225, maxSkill: 225 },
+      { name: "First Aid", skill: 225, maxSkill: 225 }, { name: "Blacksmithing", skill: 100, maxSkill: 150 },
+    ] },
   ] },
 };
 
@@ -48,7 +51,10 @@ function fixture() {
 test("reuses class roles, deduplicates alt professions, and changes only managed class/profession roles", async () => {
   const f = fixture();
   await f.sync.sync(link);
-  assert(f.current.has("warrior") && f.current.has("Blacksmithing") && f.current.has("Cooking"));
+  assert(f.current.has("warrior") && f.current.has("Blacksmithing") && f.current.has("Mining"));
+  for (const name of ["Cooking", "Fishing", "First Aid"]) {
+    assert(!f.available.has(name) && !f.current.has(name));
+  }
   assert(!f.current.has("mage"));
   assert(f.current.has("officer") && f.current.has("healer"));
   assert(!f.actions.includes("create:Warrior"));
@@ -71,10 +77,27 @@ test("reuses class roles, deduplicates alt professions, and changes only managed
   const withoutMain = { ...link };
   delete withoutMain.mainCharacterId;
   await f.sync.sync(withoutMain);
-  assert(!f.current.has("warrior") && f.current.has("Cooking"));
+  assert(!f.current.has("warrior") && f.current.has("Blacksmithing"));
   await f.sync.sync({ ...link, profile: { ...link.profile!, characters: [{ ...link.profile!.characters[0]!, className: "Unknown class" }] } });
   await f.sync.clear("20", "30");
   assert.deepEqual([...f.current.keys()].sort(), ["healer", "officer"]);
+});
+
+test("removes legacy secondary assignments even with unavailable alts while preserving role definitions and primary roles", async () => {
+  const f = fixture();
+  for (const name of ["Cooking", "Fishing", "First Aid", "Alchemy"]) {
+    f.available.set(name, f.role(name, name));
+    f.current.set(name, true);
+  }
+  await f.sync.sync({ ...link, profile: { ...link.profile!, characters: [
+    link.profile!.characters[0]!, { ...link.profile!.characters[1]!, professions: [], professionsUnavailable: true },
+  ] } });
+  for (const name of ["Cooking", "Fishing", "First Aid"]) {
+    assert(!f.current.has(name));
+    assert(f.available.has(name), "Do not delete Discord role definitions");
+    assert(f.actions.includes(`remove:${name}`));
+  }
+  for (const name of ["Alchemy", "Blacksmithing", "Mining", "warrior", "officer", "healer"]) assert(f.current.has(name));
 });
 
 test("refuses cross-server, ambiguous, managed, inaccessible, or privileged role mappings", async () => {

@@ -204,8 +204,11 @@ Blizzard skill snapshot over a duplicate manual listing, while keeping manual
 notes explicitly self-reported. Public professions refresh about every six
 hours; this is separate from checking who owns an account.
 
-With role sync enabled, the main determines one class role; profession roles
-cover all linked guild characters. Existing class roles are reused rather than
+With role sync enabled, the main determines one class role; primary profession
+roles cover all linked guild characters. Cooking, Fishing, and First Aid remain
+available in synced skills and crafter searches but do not assign roles.
+Previously assigned secondary profession roles are removed during reconciliation;
+their role definitions are left intact. Existing class roles are reused rather than
 duplicated. Conflicting class/profession changes, including Carl-bot reactions,
 are reconciled to this selection. Tank/Healer/DPS, region, pronouns, experience,
 and officer/guild-rank roles are untouched. Use `#roles` for preference roles;
