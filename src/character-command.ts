@@ -5,6 +5,8 @@ import {
 
 import { CharacterLinkError, type CharacterLink, type CharacterLinks } from "./character-links.js";
 import type { GuildRosterConfig } from "./config.js";
+import { mainPicker } from "./character-main.js";
+import type { CharacterSync } from "./character-sync.js";
 
 export function buildCharacterCommand(name: string) {
   const command = new SlashCommandBuilder().setName(name)
@@ -13,6 +15,7 @@ export function buildCharacterCommand(name: string) {
   for (const [action, description] of [
     ["link", "Start a private Battle.net consent flow"],
     ["refresh", "Recheck ownership through Battle.net and update saved characters"],
+    ["main", "Choose your main and enable synced crafters and character roles"],
     ["list", "View linked guild characters and ownership check time"],
     ["unlink", "Remove your links and cancel pending logins"],
   ]) {
@@ -22,10 +25,17 @@ export function buildCharacterCommand(name: string) {
 }
 
 function linkEmbed(link: CharacterLink): EmbedBuilder {
-  return new EmbedBuilder().setTitle("Linked guild characters")
+  const embed = new EmbedBuilder().setTitle("Linked guild characters")
     .setDescription(link.characters.slice(0, 15).map(character => `- ${escapeMarkdown(character.name).slice(0, 80)} (\`${character.id}\`)`).join("\n"))
     .addFields({ name: "Ownership checked", value: `<t:${Math.floor(link.verifiedAt / 1000)}:f> (<t:${Math.floor(link.verifiedAt / 1000)}:R>, ${link.region.toUpperCase()})` })
     .setFooter({ text: `${link.characters.length} characters. Snapshot proof, not permanent ownership or online status.` });
+  if (link.profile) embed.addFields({
+    name: "Blizzard profession snapshot",
+    value: link.profile.characters.slice(0, 8).map(character =>
+      `${escapeMarkdown(character.name)}${character.id === link.mainCharacterId ? " (main)" : ""}: ${character.professions.map(profession => `${profession.name} ${profession.skill}/${profession.maxSkill}`).join(", ") || "No professions"}`,
+    ).join("\n").slice(0, 900) || "No linked characters are in the current confirmed guild roster.",
+  }, { name: "Professions checked", value: `<t:${Math.floor(link.profile.checkedAt / 1000)}:R>. Public data refreshes every six hours; ownership is a separate dated check.` });
+  return embed;
 }
 
 export async function handleCharacterCommand(
@@ -33,6 +43,7 @@ export async function handleCharacterCommand(
   discord: Pick<Client, "channels">,
   config: GuildRosterConfig | undefined,
   links: CharacterLinks | undefined,
+  sync?: CharacterSync,
 ): Promise<void> {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
@@ -51,9 +62,15 @@ export async function handleCharacterCommand(
     if (action === "link" || action === "refresh") {
       const url = links.start(guildId, userId);
       await interaction.editReply({
-        content: `**Before you authorize**\nThis associates your Discord account with characters you own. No other feature uses these links yet; profession verification is planned.\n\n**Access:** We request read-only WoW profile access (\`wow.profile\`). Blizzard returns your WoW character list; only guild-matching character IDs/names, Discord/server IDs, region, and check time are saved automatically after authorization. We do not receive your password or authenticator codes, or save access/refresh tokens. This cannot play characters, make purchases, or change account settings. It does not grant Discord roles or verify professions.\n\n**How long:** This private sign-in link works once and expires in 10 minutes. Saved links remain until you unlink; they are not automatically refreshed and can become stale. /${interaction.commandName} refresh rechecks ownership through Battle.net; a failed refresh keeps your saved links.\n\n**Control:** /${interaction.commandName} list shows saved characters; /${interaction.commandName} unlink removes them. Revoke app permission separately in Battle.net account settings.\n\nAuthorize your own account: <${url}>\nKeep this link private. Only approve a login you started.`,
+        content: `**Before you authorize**\nLink your own guild characters, then use /${interaction.commandName} main to choose a main. Selecting a main enables public crafter listings and, when configured, class/profession roles in this server. Other #roles preferences stay unchanged.\n\n**Access:** Read-only WoW profile access (\`wow.profile\`). We keep only guild-matching character IDs/names, Discord/server IDs, region, check time, selected main, and public class/profession snapshots. No password or authenticator codes reach us; access/refresh tokens are not stored. This cannot play characters, make purchases, or change account settings.\n\n**How long:** Private sign-in URLs work once for 10 minutes. Saved links remain until you unlink. Public professions refresh every six hours; ownership is not automatically refreshed and can become stale. /${interaction.commandName} refresh rechecks ownership through Battle.net; a failed refresh keeps your saved links.\n\n**Control:** /${interaction.commandName} list shows saved data; /${interaction.commandName} unlink removes it and stops synced crafter listings. Revoke app permission separately in Battle.net account settings.\n\nAuthorize your own account: <${url}>\nKeep this link private. Only approve a login you started.`,
         allowedMentions: { parse: [] },
       });
+    } else if (action === "main") {
+      if (!sync) throw new CharacterLinkError("Character profile sync is still starting. Try again shortly.");
+      await sync.syncOwner(guildId, userId, true);
+      const result = await links.list(guildId, userId);
+      if (!result?.profile?.characters.length) throw new CharacterLinkError(`No synced guild characters. Use /${interaction.commandName} link first.`);
+      await interaction.editReply(mainPicker(result, 0));
     } else if (action === "list") {
       const result = await links.list(guildId, userId);
       await interaction.editReply({
@@ -64,8 +81,10 @@ export async function handleCharacterCommand(
         allowedMentions: { parse: [] },
       });
     } else if (action === "unlink") {
+      const previous = await links.list(guildId, userId);
       await links.unlink(guildId, userId);
-      await interaction.editReply("Your character links and pending logins are removed. Battle.net app access can also be revoked in your Battle.net account settings.");
+      const cleaned = !previous?.rolesManaged || !sync || await sync.clearRoles(guildId, userId);
+      await interaction.editReply(`Your character links and pending logins are removed. ${cleaned ? "" : "Character role cleanup failed; ask an officer to remove those roles. "}Battle.net app access can also be revoked in your Battle.net account settings. Self-registered crafter listings remain until removed with the craft command.`);
     } else {
       await interaction.editReply("Unknown character action. Pick a current slash command.");
     }

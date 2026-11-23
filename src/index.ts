@@ -33,8 +33,15 @@ import { BattleNetUserClient } from "./battlenet-user.js";
 import { CharacterLinks, CharacterLinkStore } from "./character-links.js";
 import { startCharacterCallback } from "./character-callback.js";
 import { buildCharacterCommand, handleCharacterCommand } from "./character-command.js";
+import { handleCharacterMain } from "./character-main.js";
+import { CharacterSync } from "./character-sync.js";
+import { DiscordCharacterRoles } from "./character-roles.js";
+import { BlizzardClient } from "./blizzard.js";
+import { loadWelcomeMessage, welcomeMember } from "./welcome.js";
 
 const config = loadConfig();
+const welcomeMessage = loadWelcomeMessage(config);
+const welcomeGuildIds = new Set<string>();
 const configuredWebhook = config.webhookUrl
   ? new WebhookClient({ url: config.webhookUrl })
   : undefined;
@@ -46,9 +53,12 @@ const rosterCommand = buildRosterCommand(config.rosterCommandName);
 const craftCommand = buildCraftCommand(config.craftCommandName);
 const characterCommand = buildCharacterCommand(config.characterCommandName);
 const guildRosterConfig = config.guildRoster;
+const characterStore = new CharacterLinkStore(config.dataDir);
+let characterSync: CharacterSync | undefined;
+let characterGuildId: string | undefined;
 const characterLinks = config.characterRedirectUri && guildRosterConfig
   ? new CharacterLinks(
-      new CharacterLinkStore(config.dataDir),
+      characterStore,
       new BattleNetUserClient(guildRosterConfig, config.characterRedirectUri),
       () => loadRosterState(guildRosterConfig),
       guildRosterConfig.region,
@@ -59,6 +69,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    ...(config.roleSyncEnabled || config.welcomeEnabled ? [GatewayIntentBits.GuildMembers] : []),
   ],
 });
 const lfgCommunications = new LfgCommunications(
@@ -160,6 +171,7 @@ client.once(Events.ClientReady, async (readyClient) => {
       if (!channel || channel.type !== ChannelType.GuildText) {
         throw new Error(`${channelId} is not a guild text channel`);
       }
+      welcomeGuildIds.add(channel.guildId);
       await webhookForChannel(channel);
       console.log(`Guildhead webhook ready in #${channel.name}`);
     } catch (error) {
@@ -168,16 +180,50 @@ client.once(Events.ClientReady, async (readyClient) => {
   }
 
   lfgCommunications.start();
+  console.log(`Member welcome DMs ${config.welcomeEnabled ? "enabled" : "disabled"}`);
 
   if (config.guildRoster) {
     new GuildRosterMonitor(readyClient, config.guildRoster).start();
     console.log(
       `Guild roster monitor enabled for ${config.guildRoster.guildName}`,
     );
+    if (characterLinks) {
+      try {
+        const channel = await readyClient.channels.fetch(config.guildRoster.announcementChannelId);
+        if (!channel || !("guildId" in channel)) throw new Error("Character sync needs a guild announcement channel");
+        characterGuildId = channel.guildId;
+        characterSync = new CharacterSync(
+          characterStore, new BlizzardClient(config.guildRoster),
+          () => loadRosterState(config.guildRoster!),
+          characterGuildId, config.guildRoster.region,
+          config.roleSyncEnabled ? new DiscordCharacterRoles(readyClient, characterGuildId) : undefined,
+        );
+        characterSync.start();
+        console.log(`Character professions refresh every six hours; role sync ${config.roleSyncEnabled ? "enabled" : "disabled"}`);
+      } catch (error) {
+        console.error("Could not start character profile sync:", error);
+      }
+    }
   } else {
     console.log(
       "Guild roster monitor disabled; configure Blizzard credentials to enable it",
     );
+  }
+});
+
+client.on(Events.GuildMemberAdd, async (member) => {
+  const result = await welcomeMember(member, {
+    enabled: config.welcomeEnabled,
+    guildIds: welcomeGuildIds,
+    message: welcomeMessage,
+  });
+  if (result === "failed") console.warn("Could not send welcome DM; member may block DMs");
+});
+
+client.on(Events.GuildMemberUpdate, (_previous, member) => {
+  if (config.roleSyncEnabled && characterSync && member.guild.id === characterGuildId) {
+    void characterSync.syncOwner(member.guild.id, member.id)
+      .catch(error => console.error("Could not reconcile character roles:", error));
   }
 });
 
@@ -216,6 +262,10 @@ client.on(Events.MessageCreate, async (message) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if ((interaction.isStringSelectMenu() || interaction.isButton()) && interaction.customId.startsWith("guildhead:main:")) {
+    await handleCharacterMain(interaction, characterLinks, characterSync);
+    return;
+  }
   if (!interaction.isChatInputCommand()) {
     return;
   }
@@ -261,7 +311,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           name: `/${config.characterCommandName}`,
           value:
             "`link`: authorize your own Battle.net account\n" +
-            "`refresh|list|unlink`: recheck, view, or remove your guild-character links; authorization saves them automatically",
+            "`main`: choose a main, enable synced crafters, and set class/profession roles when configured\n" +
+            "`refresh|list|unlink`: recheck, view, or remove your guild-character links",
         },
         {
           name: "Automatic tooltips",
@@ -283,7 +334,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.commandName === config.characterCommandName) {
-    await handleCharacterCommand(interaction, client, config.guildRoster, characterLinks);
+    await handleCharacterCommand(interaction, client, config.guildRoster, characterLinks, characterSync);
     return;
   }
 
@@ -303,7 +354,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.commandName === config.craftCommandName) {
-    await handleCraftCommand(interaction, crafterDirectory, config.channelIds, webhookForChannel);
+    await handleCraftCommand(interaction, crafterDirectory, config.channelIds, webhookForChannel, characterSync);
     return;
   }
 
@@ -361,7 +412,12 @@ client.on(Events.Error, (error) => {
 });
 
 if (characterLinks && config.characterRedirectUri) {
-  await startCharacterCallback(characterLinks, config.characterRedirectUri, 8787);
+  await startCharacterCallback({
+    callback: async (state, code) => {
+      await characterLinks.callback(state, code);
+      void characterSync?.poll();
+    },
+  }, config.characterRedirectUri, 8787, config.characterCommandName, config.roleSyncEnabled);
   console.log("Battle.net character callback listening on port 8787");
 }
 

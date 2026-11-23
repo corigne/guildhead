@@ -45,10 +45,12 @@ test("validates callback parameters, hides upstream details, and disables respon
     assert.match(page, /^<!doctype html>/);
     assert.match(page, /<meta name="viewport"/);
     assert.match(page, /<h1>Characters linked<\/h1>/);
-    assert.match(page, /No roles were changed/);
-    assert.match(page, /<code>list<\/code>/);
+    assert.match(page, /<code>\/character main<\/code>/);
+    assert.match(page, /awaiting server-operator setup/);
+    assert.match(page, /#roles/);
+    assert.match(page, /<code>\/character list<\/code>/);
     assert.doesNotMatch(page, /<code>confirm<\/code>/);
-    assert.match(page, /<code>unlink<\/code>/);
+    assert.match(page, /<code>\/character unlink<\/code>/);
     const style = page.match(/<style>([\s\S]+?)<\/style>/)![1]!;
     const hash = createHash("sha256").update(style).digest("base64");
     assert.equal(success.headers.get("content-security-policy"),
@@ -61,6 +63,7 @@ test("validates callback parameters, hides upstream details, and disables respon
     const expiredPage = await domain.text();
     assert.match(expiredPage, /<h1>Unable to continue<\/h1>/);
     assert.match(expiredPage, /Login expired\./);
+    assert.match(expiredPage, /<code>\/character link<\/code>/);
     assert.doesNotMatch(expiredPage, /<ol/);
     const escaped = await fetch(`${base}?state=${state}&code=html`);
     assert.equal(escaped.status, 400);
@@ -83,7 +86,7 @@ test("serves a complete one-time callback, automatically saves matched character
     authorizationUrl: value => `https://oauth.battle.net/authorize?state=${value}`,
     ownedCharacters: async () => new Set(["1"]),
   }, async () => initialRosterState([{ id: "1", name: "Anvil", slug: "anvil", level: 20, className: "Warrior", rank: 2 }]), "us");
-  const server = await startCharacterCallback(links, uri, 0);
+  const server = await startCharacterCallback(links, uri, 0, "toon", true);
   const port = (server.address() as AddressInfo).port;
   try {
     await assert.rejects(startCharacterCallback(links, uri, port), /EADDRINUSE/);
@@ -93,10 +96,16 @@ test("serves a complete one-time callback, automatically saves matched character
     assert.equal(response.status, 200);
     const page = await response.text();
     assert.match(page, /Characters linked/);
+    assert.match(page, /<code>\/toon list<\/code>/);
+    assert.match(page, /<code>\/toon unlink<\/code>/);
+    assert.match(page, /Your main sets your class role/);
+    assert.doesNotMatch(page, /\/character /);
     assert.ok(!page.includes(nonce!));
     assert.doesNotMatch(page, /state=|code=code/);
     assert.equal((await store.get("20", "30"))?.characters[0]?.id, "1");
-    assert.equal((await fetch(url)).status, 400);
+    const replay = await fetch(url);
+    assert.equal(replay.status, 400);
+    assert.match(await replay.text(), /<code>\/toon link<\/code>/);
     assert.equal((await store.get("20", "30"))?.characters[0]?.id, "1");
   } finally {
     server.close();

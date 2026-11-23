@@ -23,22 +23,27 @@ not a release-date promise.
   authorization, private access/retention disclosures, and an explicit refresh
   command. Real-player consent is still needed to validate Forever's
   user-token response on this deployment.
+- Private main-character selection, API-backed profession skills, and optional
+  main-class/profession roles. Skills refresh about every six hours; ownership
+  still requires explicit Battle.net authorization. Existing class roles are
+  reused, and unrelated Carl-bot preference roles remain untouched.
 
 ## Next
 
 1. Validate character linking with a consenting player on the deployed
    callback. Public character and profession endpoints return 200; app tokens
    correctly receive 403 from the account endpoint.
-2. Use verified ownership as a foundation for profession lookup. Validate
-   skill/recipe payloads before presenting self-reported claims as verified.
+2. Validate known-recipe payloads before adding recipe lookup. Profession skills
+   are synced; free-form recipe notes remain self-reported.
 3. Add a useful handoff to established scheduling tools such as Raid-Helper.
    Do not build another raid calendar without a concrete unmet need.
 
 ## Known limits
 
-Crafter entries remain self-reported. Character ownership checks do not prove
-profession skill, recipes, current guild membership, or continuous ownership,
-and do not grant Discord roles.
+Manual crafter entries and recipe notes remain self-reported. Synced skills
+have a separate Blizzard check time. Ownership checks do not prove current
+guild membership or continuous ownership. Optional roles use confirmed guild
+snapshots and public profile data, not live presence.
 
 Forever's roster API is undocumented and can change. Polling is not live
 presence. Discord activity and voice connections do not prove a character is

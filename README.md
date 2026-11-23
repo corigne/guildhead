@@ -29,6 +29,8 @@ and Wowhead links.
 - Guild-maintained crafter directory with find, register, and remove commands
 - Server-scoped crafter listings with multiple characters per profession
 - Opt-in Battle.net character ownership checks with automatic linking after authorization
+- Main-character selection, API-backed profession skills, and optional class/profession roles
+- Optional, customizable welcome DMs explaining commands, voluntary linking, privacy, and source code
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Updated LFG announcements and leader DMs when players join or leave
 - Exact-name matching to avoid unrelated search results
@@ -77,6 +79,12 @@ Wowhead database is Forever; no Blizzard credentials are needed for tooltips,
 crafters, or LFG. Blizzard credentials enable roster monitoring and lookup.
 Character linking also needs a public HTTPS callback registered with Battle.net;
 see [character linking](docs/character-linking.md).
+
+Optional welcome DMs require **Server Members Intent** and
+`GUILD_WELCOME_ENABLED=true`. They are off by default. Customize the introduction
+using `GUILD_WELCOME_MESSAGE_FILE`; see the
+[welcome setup](docs/operations.md#optional-welcome-dms). No linking is required
+to use tooltips, manual crafter listings, group finding, or roster lookup.
 
 Multiple channel IDs and databases use comma-separated values:
 
@@ -146,6 +154,7 @@ silently storing or displaying partial data.
 /roster name:<optional> class:<optional> level:<optional> rank:<optional>
 /character link
 /character refresh
+/character main
 /character list
 /character unlink
 ```
@@ -182,16 +191,29 @@ showing the Battle.net authorization URL. After consent, matching guild
 characters are saved automatically. `/character list` shows the saved names
 and check time; `/character unlink` removes them and cancels pending logins.
 
+Run `/character main` to select your main from a private, paginated picker.
+This opts into public API-backed crafter listings. `/craft find` prefers the
+Blizzard skill snapshot over a duplicate manual listing, while keeping manual
+notes explicitly self-reported. Public professions refresh about every six
+hours; this is separate from checking who owns an account.
+
+With role sync enabled, the main determines one class role; profession roles
+cover all linked guild characters. Existing class roles are reused rather than
+duplicated. Conflicting class/profession changes, including Carl-bot reactions,
+are reconciled to this selection. Tank/Healer/DPS, region, pronouns, experience,
+and officer/guild-rank roles are untouched. Use `#roles` for preference roles;
+ask an officer about guild-rank roles.
+
 The sign-in URL expires after ten minutes, not the saved links. Saved ownership
 checks remain until unlinked and can become stale. `/character refresh` starts
 a new Battle.net check and replaces the snapshot only on success. No tokens
 are stored, so ownership cannot be silently refreshed in the background.
 
 Blizzard returns the account's WoW character list, but only characters present
-in the saved guild roster are retained. The bot does not save access tokens, BattleTags, or
-unrelated alts. Proof is dated, not a promise of permanent ownership; it does not
-grant Discord roles or mark crafter professions as verified. No other feature
-consumes these links yet; verified profession lookup is planned.
+in the saved guild roster are retained, along with public class/profession
+snapshots and the selected main. The bot does not save access tokens, BattleTags,
+or unrelated alts. Ownership proof is dated, not permanent. API skill snapshots
+do not verify free-form recipe notes or availability.
 
 Setup, tested API support, and limitations are in the
 [character-linking guide](docs/character-linking.md).

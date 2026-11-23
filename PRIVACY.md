@@ -32,20 +32,44 @@ Operational logs may contain
 Discord message IDs, character names and error details, but not bot tokens or
 webhook URLs.
 
+Optional welcome DMs use Discord member-join events in configured servers,
+requiring Server Members Intent independently of role sync. Guildhead sends
+the operator's introduction to new human members only; it does not read their
+private messages. It stores no welcome recipients or delivery history and
+does not retry or publicly announce blocked DMs. Existing members are not
+backfilled after restart. Sent welcomes remain subject to Discord retention.
+The default message explains voluntary linking and points to the source code;
+operators can customize it for their server.
+
 Character linking is opt-in. The player authorizes `wow.profile` at Battle.net.
 An access token is used in memory to retrieve owned character IDs; it is not
 persisted. Only IDs and names matching the saved guild roster, region, Discord
 server/user IDs, and verification time are saved automatically after successful
-authorization. Blizzard returns the WoW character list, including unrelated
+authorization. Public class and profession skill snapshots are cached for
+those characters and refreshed about every six hours. Blizzard returns the WoW character list, including unrelated
 alts; those unrelated entries, BattleTags, and Battle.net account IDs are not
 retained. Guildhead never receives passwords or authenticator codes and does
 not save access or refresh tokens. Pending logins expire after ten minutes or a
 restart; saved links have no automatic expiry and remain until unlinked.
 Ownership checks can become stale. `/character refresh` requires a new
 Battle.net authorization flow and replaces saved links only after a successful
-check; ownership is not refreshed in the background.
+check; ownership is not refreshed in the background. Selecting a main with
+`/character main` stores that choice and opts into public crafter listings,
+which associate the user's Discord ID with their guild characters and API
+profession skills. Previously linked users are not published until they
+select a main. Manual recipe notes remain self-reported.
+
+When enabled by the operator, role sync uses the selected main's class and all
+linked guild characters' professions. Member-update events and periodic
+reconciliation keep only those managed role assignments consistent; unrelated
+roles are not changed. This requires Server Members Intent and exposes Discord
+member/role metadata to the bot, not private messages or online presence.
 `/character unlink` removes that user's saved link in the current
-server and cancels pending logins; it does not revoke the app at Battle.net.
+server, stops synced crafter listings, cancels pending logins, and attempts to
+remove class/profession roles if the user opted into setup and role sync is
+enabled. Failed role cleanup is reported for officer assistance. Manually
+registered crafter entries are separate and must be removed with the craft
+command. Unlinking does not revoke the app at Battle.net.
 Battle.net permissions can be revoked separately in account settings.
 Unlinking does not remove copies in operator-managed backups; those follow the
 operator's backup retention policy.

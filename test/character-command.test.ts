@@ -10,6 +10,7 @@ import { buildCharacterCommand, handleCharacterCommand } from "../src/character-
 import { CharacterLinks, CharacterLinkStore } from "../src/character-links.js";
 import type { GuildRosterConfig } from "../src/config.js";
 import { initialRosterState } from "../src/roster-state.js";
+import { CharacterSync } from "../src/character-sync.js";
 
 const config = { announcementChannelId: "40" } as GuildRosterConfig;
 const discord = { channels: { fetch: async () => ({ guildId: "20" }) } } as unknown as Pick<Client, "channels">;
@@ -29,7 +30,7 @@ test("advertises guild-only character linking, viewing, and unlinking without co
   const command = buildCharacterCommand("toon").toJSON();
   assert.equal(command.name, "toon");
   assert.deepEqual(command.contexts, [0]);
-  assert.deepEqual(command.options?.map(option => option.name), ["link", "refresh", "list", "unlink"]);
+  assert.deepEqual(command.options?.map(option => option.name), ["link", "refresh", "main", "list", "unlink"]);
 });
 
 test("keeps character actions private and explains scope, retention, limitations, and revocation before authorization", async () => {
@@ -49,11 +50,11 @@ test("keeps character actions private and explains scope, retention, limitations
     const json = JSON.stringify(replies);
     assert.match(json, /Keep this link private/);
     for (const disclosure of [
-      /wow\.profile/, /10 minutes/, /automatically after authorization/,
+      /wow\.profile/, /10 minutes/, /access\/refresh tokens are not stored/,
       /Saved links remain until you unlink/, /not automatically refreshed/,
-      /do not receive your password or authenticator codes/,
-      /or save access\/refresh tokens/, /cannot play characters/,
-      /No other feature uses these links yet/, /Revoke app permission separately/,
+      /No password or authenticator codes reach us/,
+      /cannot play characters/, /Public professions refresh every six hours/,
+      /Selecting a main enables public crafter listings/, /Revoke app permission separately/,
       /\/toon list/, /\/toon unlink/, /\/toon refresh/, /failed refresh keeps your saved links/,
     ]) assert.match(json, disclosure);
     assert.doesNotMatch(json, /\/toon confirm/);
@@ -67,6 +68,7 @@ test("keeps character actions private and explains scope, retention, limitations
   };
   try {
     assert.match(JSON.stringify(await run("list")), /No linked characters/);
+    assert.match(JSON.stringify(await run("main")), /still starting/);
     await authorize("link");
     const saved = await run("list");
     assert.match(JSON.stringify(saved), /Anvil/);
@@ -78,6 +80,46 @@ test("keeps character actions private and explains scope, retention, limitations
     assert.match(JSON.stringify(await run("obsolete")), /Unknown character action/);
     for (let index = 0; index < 1_000; index += 1) links.start("21", String(index + 1));
     assert.match(JSON.stringify(await run("refresh")), /Too many pending logins/);
+  } finally { await rm(path, { recursive: true }); }
+});
+
+test("provides main setup and API-backed profile details and reports role cleanup failures without retaining links", async context => {
+  context.mock.method(console, "error", () => {});
+  const path = await mkdtemp(join(tmpdir(), "guildhead-main-command-"));
+  const store = new CharacterLinkStore(path);
+  const member = { id: "1", name: "Anvil", slug: "anvil", level: 20, className: "Warrior", rank: 2 };
+  let roster = initialRosterState([member]);
+  const links = new CharacterLinks(store, { authorizationUrl: state => state, ownedCharacters: async () => new Set(["1"]) }, async () => roster, "us");
+  let failCleanup = false;
+  const sync = new CharacterSync(store, {
+    characterProfessions: async () => [{ name: "Blacksmithing", skill: 131, maxSkill: 150 }],
+  }, async () => roster, "20", "us", {
+    sync: async () => {}, clear: async () => { if (failCleanup) throw new Error("transport"); },
+  }, () => 2_000);
+  const run = async (action: string, service: CharacterSync | undefined = sync) => {
+    const request = interaction(action);
+    await handleCharacterCommand(request.value, discord, config, links, service);
+    return JSON.stringify(request.replies);
+  };
+  try {
+    assert.match(await run("main"), /No synced guild characters/);
+    await store.save({ guildId: "20", discordUserId: "30", region: "us", verifiedAt: 1_000, characters: [{ id: "1", name: "Anvil" }] });
+    assert.match(await run("main"), /Choose your main character/);
+    assert.match(await run("list"), /Blacksmithing 131\/150/);
+    await sync.selectMain("20", "30", "1");
+    assert.match(await run("list"), /\(main\)/);
+    failCleanup = true;
+    assert.match(await run("unlink"), /role cleanup failed/);
+    assert.equal(await store.get("20", "30"), undefined);
+    await store.save({ guildId: "20", discordUserId: "30", region: "us", verifiedAt: 1_000, rolesManaged: true, characters: [{ id: "1", name: "Anvil" }] });
+    await store.saveProfile("20", "30", 1_000, { checkedAt: 2_000, characters: [{ id: "1", name: "Anvil", className: "Warrior", professions: [] }] });
+    assert.match(await run("list"), /No professions/);
+    roster = initialRosterState([]);
+    await sync.syncOwner("20", "30", true);
+    assert.match(await run("list"), /No linked characters are in the current/);
+    const withoutService = interaction("unlink");
+    await handleCharacterCommand(withoutService.value, discord, config, links);
+    assert.match(JSON.stringify(withoutService.replies), /pending logins are removed/);
   } finally { await rm(path, { recursive: true }); }
 });
 

@@ -19,6 +19,9 @@ export interface Config {
   rosterCommandName: string;
   characterCommandName: string;
   characterRedirectUri?: string;
+  roleSyncEnabled: boolean;
+  welcomeEnabled: boolean;
+  welcomeMessageFile?: string;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
   dataDir: string;
@@ -202,6 +205,12 @@ export function loadConfig(): Config {
   );
   const guildRoster = parseGuildRosterConfig(dataDir);
   const characterRedirectUri = process.env.BLIZZARD_OAUTH_REDIRECT_URI?.trim();
+  const roleSync = process.env.GUILD_ROLE_SYNC_ENABLED?.trim() || "false";
+  const welcome = process.env.GUILD_WELCOME_ENABLED?.trim() || "false";
+  if (welcome !== "true" && welcome !== "false") throw new Error("GUILD_WELCOME_ENABLED must be true or false");
+  const welcomeMessageFile = process.env.GUILD_WELCOME_MESSAGE_FILE?.trim();
+  if (roleSync !== "true" && roleSync !== "false") throw new Error("GUILD_ROLE_SYNC_ENABLED must be true or false");
+  if (roleSync === "true" && !characterRedirectUri) throw new Error("Role sync requires character linking");
   if (characterRedirectUri) {
     let url: URL;
     try {
@@ -247,6 +256,9 @@ export function loadConfig(): Config {
     rosterCommandName,
     characterCommandName,
     ...(characterRedirectUri ? { characterRedirectUri } : {}),
+    roleSyncEnabled: roleSync === "true",
+    welcomeEnabled: welcome === "true",
+    ...(welcomeMessageFile ? { welcomeMessageFile } : {}),
     channelIds,
     flavors,
     dataDir,

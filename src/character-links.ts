@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { BattleNetUserClient } from "./battlenet-user.js";
 import type { GuildRosterConfig } from "./config.js";
 import type { RosterState } from "./roster-state.js";
+import { parseProfileSnapshot, type CharacterProfileSnapshot } from "./professions.js";
 
 export interface LinkedCharacter {
   id: string;
@@ -18,6 +19,9 @@ export interface CharacterLink {
   region: GuildRosterConfig["region"];
   verifiedAt: number;
   characters: LinkedCharacter[];
+  mainCharacterId?: string;
+  rolesManaged?: boolean;
+  profile?: CharacterProfileSnapshot;
 }
 
 export class CharacterLinkError extends Error {}
@@ -46,6 +50,12 @@ export function parseCharacterLinks(value: unknown): CharacterLink[] {
       assert(typeof character.name === "string" && character.name.trim().length > 0, "Invalid linked character name");
       assert(!ids.has(character.id), "Duplicate linked character");
       ids.add(character.id);
+    }
+    assert(raw.mainCharacterId === undefined || (typeof raw.mainCharacterId === "string" && ids.has(raw.mainCharacterId)), "Invalid main character");
+    assert(raw.rolesManaged === undefined || typeof raw.rolesManaged === "boolean", "Invalid role opt-in");
+    if (raw.profile !== undefined) {
+      const profile = parseProfileSnapshot(raw.profile);
+      assert(profile.characters.every(character => ids.has(character.id)), "Profile contains an unowned character");
     }
     const key = `${raw.guildId}:${raw.discordUserId}`;
     assert(!keys.has(key), "Duplicate character link owner");
@@ -90,8 +100,41 @@ export class CharacterLinkStore {
   public save(link: CharacterLink): Promise<void> {
     return this.transact(links => {
       const index = links.findIndex(entry => entry.guildId === link.guildId && entry.discordUserId === link.discordUserId);
-      if (index >= 0) links[index] = link;
+      if (index >= 0) {
+        const previous = links[index]!;
+        const main = previous.mainCharacterId;
+        links[index] = {
+          ...link,
+          ...(previous.rolesManaged === undefined ? {} : { rolesManaged: previous.rolesManaged }),
+          ...(main && link.characters.some(character => character.id === main) ? { mainCharacterId: main } : {}),
+        };
+      }
       else links.push(link);
+      return { value: undefined, save: true };
+    });
+  }
+
+  public all(): Promise<CharacterLink[]> {
+    return this.transact(links => ({ value: links }));
+  }
+
+  public saveProfile(guildId: string, userId: string, verifiedAt: number, profile: CharacterProfileSnapshot): Promise<boolean> {
+    return this.transact(links => {
+      const link = links.find(entry => entry.guildId === guildId && entry.discordUserId === userId);
+      if (!link || link.verifiedAt !== verifiedAt) return { value: false };
+      link.profile = profile;
+      return { value: true, save: true };
+    });
+  }
+
+  public selectMain(guildId: string, userId: string, characterId: string): Promise<void> {
+    return this.transact(links => {
+      const link = links.find(entry => entry.guildId === guildId && entry.discordUserId === userId);
+      if (!link?.profile?.characters.some(character => character.id === characterId)) {
+        throw new CharacterLinkError("That character is not in your synced guild characters. Refresh your character link and try again.");
+      }
+      link.mainCharacterId = characterId;
+      link.rolesManaged = true;
       return { value: undefined, save: true };
     });
   }

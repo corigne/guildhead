@@ -55,6 +55,32 @@ const unusedWebhook = async (): Promise<WebhookClient> => {
   assert.fail("This path must not use a webhook");
 };
 
+test("prefers synced skills without duplicating manual listings or presenting recipe notes as API facts", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-synced-craft-"));
+  const directory = new CrafterDirectory(path);
+  try {
+    await directory.register({ guildId: "20", discordUserId: "30", characterName: "Anvil", profession: "Blacksmithing", notes: "Rare recipe claimed" });
+    await directory.register({ guildId: "20", discordUserId: "31", characterName: "Other", profession: "Blacksmithing" });
+    const request = interaction("find");
+    await handleCraftCommand(request.value, directory, new Set(), unusedWebhook, {
+      findCrafters: async () => [{
+        guildId: "20", discordUserId: "30", characterName: "ANVIL", profession: "Blacksmithing",
+        updatedAt: new Date(2_000).toISOString(), checkedAt: 2_000, ownershipCheckedAt: 1_000, skill: 131, maxSkill: 150,
+      }, {
+        guildId: "20", discordUserId: "32", characterName: "Alt", profession: "Blacksmithing",
+        updatedAt: new Date(2_000).toISOString(), checkedAt: 2_000, ownershipCheckedAt: 1_000, skill: 100, maxSkill: 150,
+      }],
+    });
+    const description = (request.replies[0] as Response).embeds![0]!.toJSON().description!;
+    assert.equal((description.match(/<@30>/g) ?? []).length, 1);
+    assert.match(description, /131\/150/);
+    assert.match(description, /Self-reported notes: Rare recipe claimed/);
+    assert.match(description, /ownership <t:1:R>/);
+    assert.match(description, /Other/);
+    assert.equal((await directory.find("20", "Blacksmithing"))[0]?.notes, "Rare recipe claimed");
+  } finally { await rm(path, { recursive: true }); }
+});
+
 test("advertises crafter subcommands and bounded character and notes inputs", () => {
   const command = buildCraftCommand("guild-craft").toJSON();
   assert.equal(command.name, "guild-craft");

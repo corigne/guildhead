@@ -16,6 +16,7 @@ import {
   professions,
   type Profession,
 } from "./crafter-directory.js";
+import type { CharacterSync } from "./character-sync.js";
 
 export function buildCraftCommand(name: string) {
   const choices = professions.map((value) => ({ name: value, value }));
@@ -28,7 +29,7 @@ export function buildCraftCommand(name: string) {
         .setName("find")
         .setDescription("Find guild crafters by profession")
         .addStringOption((option) =>
-          option.setName("profession").setDescription("Crafting profession")
+          option.setName("profession").setDescription("Profession")
             .setRequired(true).addChoices(...choices),
         ),
     )
@@ -41,7 +42,7 @@ export function buildCraftCommand(name: string) {
             .setRequired(true).setMinLength(2).setMaxLength(24),
         )
         .addStringOption((option) =>
-          option.setName("profession").setDescription("Crafting profession")
+          option.setName("profession").setDescription("Profession")
             .setRequired(true).addChoices(...choices),
         )
         .addStringOption((option) =>
@@ -77,6 +78,7 @@ export async function handleCraftCommand(
   directory: CrafterDirectory,
   linkedChannelIds: ReadonlySet<string>,
   webhookForChannel: (channel: TextChannel) => Promise<WebhookClient>,
+  synced?: Pick<CharacterSync, "findCrafters">,
 ): Promise<void> {
   if (!interaction.guildId) {
     await interaction.reply({
@@ -121,8 +123,8 @@ export async function handleCraftCommand(
       );
       await interaction.reply({
         content: removed
-          ? `Removed your **${profession}** listing.`
-          : `You do not have a **${profession}** listing.`,
+          ? `Removed your manual **${profession}** listing. Synced listings remain until you unlink your characters.`
+          : `You do not have a manual **${profession}** listing. Synced listings remain until you unlink your characters.`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -132,15 +134,25 @@ export async function handleCraftCommand(
     await interaction.deferReply(
       linkedChannel ? { flags: MessageFlags.Ephemeral } : undefined,
     );
-    const listings = await directory.find(interaction.guildId, profession);
+    const manual = await directory.find(interaction.guildId, profession);
+    const verified = await synced?.findCrafters(interaction.guildId, profession) ?? [];
+    const sameCharacter = (left: typeof manual[number], right: typeof manual[number]) =>
+      left.discordUserId === right.discordUserId &&
+      left.characterName.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase() ===
+        right.characterName.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
+    const listings = [...verified, ...manual.filter(entry => !verified.some(other => sameCharacter(entry, other)))]
+      .sort((left, right) => left.characterName.localeCompare(right.characterName));
     if (listings.length === 0) {
       await interaction.editReply(`No **${profession}** crafters are registered yet.`);
       return;
     }
     const lines: string[] = [];
     for (const listing of listings.slice(0, 15)) {
-      const notes = listing.notes ? ` - ${escapeMarkdown(listing.notes)}` : "";
-      const line = `**${escapeMarkdown(listing.characterName)}** (<@${listing.discordUserId}>)${notes}`;
+      const api = verified.find(entry => entry === listing);
+      const note = manual.find(entry => sameCharacter(entry, listing))?.notes;
+      const notes = note ? ` - ${api ? "Self-reported notes: " : ""}${escapeMarkdown(note)}` : "";
+      const skill = api ? ` - **${api.skill}/${api.maxSkill}**, Blizzard checked <t:${Math.floor(api.checkedAt / 1000)}:R>; ownership <t:${Math.floor(api.ownershipCheckedAt / 1000)}:R>` : "";
+      const line = `**${escapeMarkdown(listing.characterName)}** (<@${listing.discordUserId}>)${skill}${notes}`;
       if (lines.join("\n").length + line.length > 3_800) {
         break;
       }

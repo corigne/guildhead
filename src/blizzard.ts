@@ -1,5 +1,6 @@
 import type { GuildRosterConfig } from "./config.js";
 import type { RosterMember } from "./roster-state.js";
+import { parseBlizzardProfessions, type ProfessionSkill } from "./professions.js";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -139,6 +140,21 @@ export class BlizzardClient {
     this.accessToken = token.accessToken;
     this.tokenExpiresAt = Date.now() + token.expiresIn * 1000;
     return token.accessToken;
+  }
+
+  public async characterProfessions(slug: string, characterId: string): Promise<ProfessionSkill[]> {
+    const url = new URL(
+      `/profile/wow/character/${encodeURIComponent(slug)}/professions`,
+      `https://${this.config.region}.api.blizzard.com`,
+    );
+    url.searchParams.set("namespace", `profile-forever-${this.config.region}`);
+    url.searchParams.set("locale", this.config.region === "eu" ? "en_GB" : "en_US");
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${await this.token()}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`Blizzard professions request failed with HTTP ${response.status}`);
+    return parseBlizzardProfessions(await response.json(), characterId);
   }
 
   public async guildRoster(): Promise<RosterMember[]> {

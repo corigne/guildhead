@@ -28,7 +28,7 @@ const styles = `
   .message { overflow-wrap: anywhere; }
   ol { padding-left: 1.5rem; }
   li { margin: .5rem 0; }
-  code { padding: .1rem .4rem; border: 1px solid #655139; border-radius: .2rem; color: #f2cf89; }
+  code { padding: .1rem .4rem; border: 1px solid #655139; border-radius: .2rem; color: #f2cf89; overflow-wrap: anywhere; }
   footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #4c4031; color: #c1b5a3; font-size: .85rem; }
 `;
 const styleHash = createHash("sha256").update(styles).digest("base64");
@@ -38,7 +38,8 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-function sendPage(response: ServerResponse, status: number, title: string, message: string): void {
+function sendPage(response: ServerResponse, commandName: string, rolesEnabled: boolean, status: number, title: string, message: string): void {
+  const command = escapeHtml(`/${commandName}`);
   response.writeHead(status).end(`<!doctype html>
 <html lang="en">
 <head>
@@ -57,9 +58,12 @@ function sendPage(response: ServerResponse, status: number, title: string, messa
     <p class="message">${escapeHtml(message)}</p>
     ${status === 200 ? `<ol aria-label="Manage your links in Discord">
       <li>Return to your Discord server.</li>
-      <li>Use your character command's <code>list</code> subcommand to view your linked characters.</li>
-      <li>Use <code>unlink</code> if you want to remove them.</li>
-    </ol>` : ""}
+      <li>Run <code>${command} main</code> to choose your main character and enable synced crafter listings.</li>
+      <li>${rolesEnabled ? "Your main sets your class role; profession roles include your linked alts. Guildhead manages these roles automatically." : "Class and profession role assignment is awaiting server-operator setup. Your main and profession data can still be saved."}</li>
+      <li>Run <code>${command} list</code> to view your linked characters.</li>
+      <li>Open your server's <strong>#roles</strong> channel for Tank/Healer/DPS, region, pronouns, and experience preferences. Ask an officer about guild-rank roles.</li>
+      <li>Run <code>${command} unlink</code> to remove your character links.</li>
+    </ol>` : `<p>Return to Discord and run <code>${command} link</code> to start again.</p>`}
     <footer>You can close this tab and return to Discord. Safe travels, adventurer.</footer>
   </main>
 </body>
@@ -69,6 +73,8 @@ function sendPage(response: ServerResponse, status: number, title: string, messa
 export function createCharacterCallback(
   links: Pick<CharacterLinks, "callback">,
   redirectUri: string,
+  commandName = "character",
+  rolesEnabled = false,
 ): Server {
   const callbackPath = new URL(redirectUri).pathname;
   return createServer((request, response) => {
@@ -81,7 +87,7 @@ export function createCharacterCallback(
       try {
         const url = new URL(request.url!, "http://localhost");
         if (request.method !== "GET" || url.pathname !== callbackPath) {
-          sendPage(response, 404, "Path not found", "This path leads nowhere. Start character linking from Discord.");
+          sendPage(response, commandName, rolesEnabled, 404, "Path not found", "This path leads nowhere. Start character linking from Discord.");
           return;
         }
         const states = url.searchParams.getAll("state");
@@ -91,13 +97,13 @@ export function createCharacterCallback(
             codes.length > 1 || errors.length > 1 ||
             (codes.length === 1) === (errors.length === 1) ||
             (codes.length === 1 && (codes[0]!.length === 0 || codes[0]!.length > 2_048))) {
-          sendPage(response, 400, "Unable to continue", "Invalid callback parameters. Start again in Discord.");
+          sendPage(response, commandName, rolesEnabled, 400, "Unable to continue", "Invalid callback parameters. Start again in Discord.");
           return;
         }
         await links.callback(states[0]!, codes[0] ?? null);
-        sendPage(response, 200, "Characters linked", "Your guild characters are linked to your Discord account. No roles were changed and profession claims remain unverified.");
+        sendPage(response, commandName, rolesEnabled, 200, "Characters linked", "Your guild characters are linked to your Discord account. Finish setting up your Discord profile below.");
       } catch (error) {
-        sendPage(response, 400, "Unable to continue", error instanceof CharacterLinkError
+        sendPage(response, commandName, rolesEnabled, 400, "Unable to continue", error instanceof CharacterLinkError
           ? error.message
           : "Could not verify Battle.net characters. No link was saved. Start again in Discord.");
       }
@@ -106,11 +112,13 @@ export function createCharacterCallback(
 }
 
 export async function startCharacterCallback(
-  links: CharacterLinks,
+  links: Pick<CharacterLinks, "callback">,
   redirectUri: string,
   port: number,
+  commandName?: string,
+  rolesEnabled?: boolean,
 ): Promise<Server> {
-  const server = createCharacterCallback(links, redirectUri);
+  const server = createCharacterCallback(links, redirectUri, commandName, rolesEnabled);
   server.listen(port, "0.0.0.0");
   await once(server, "listening");
   return server;

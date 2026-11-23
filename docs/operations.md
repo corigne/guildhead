@@ -21,6 +21,9 @@ Optional settings:
 | `DISCORD_LFG_COMMAND_NAME` | `lfg` | Group finding |
 | `DISCORD_ROSTER_COMMAND_NAME` | `roster` | Private saved-roster lookup |
 | `DISCORD_CHARACTER_COMMAND_NAME` | `character` | Private character linking |
+| `GUILD_ROLE_SYNC_ENABLED` | `false` | Authoritative main-class/profession roles; needs Server Members Intent and Manage Roles |
+| `GUILD_WELCOME_ENABLED` | `false` | DM new human members in servers containing configured tooltip channels; needs Server Members Intent |
+| `GUILD_WELCOME_MESSAGE_FILE` | unset | UTF-8 welcome template; omitted uses the built-in neutral introduction |
 | `BLIZZARD_OAUTH_REDIRECT_URI` | unset | Enable Battle.net consent callback; requires roster configuration |
 | `DISCORD_WEBHOOK_URL` | unset | Use a supplied webhook instead of managing one per channel |
 | `GUILDHEAD_DATA_DIR` | `/data` | Persistent JSON state |
@@ -44,6 +47,46 @@ The first successful roster poll establishes a baseline without announcements.
 Changes need two consecutive observations. These are delayed Blizzard
 snapshots, not live login/logout events.
 
+## Optional welcome DMs
+
+Enable **Server Members Intent** in the Discord Developer Portal before setting
+`GUILD_WELCOME_ENABLED=true`. Welcomes are disabled by default, independent of
+character linking and role sync. Only new human joins in servers containing a
+configured `DISCORD_CHANNEL_IDS` channel receive a DM. Existing members are not
+messaged on startup; bots are skipped. Blocked DMs fail quietly without public
+fallback, retry, or stored delivery history. Leaving and rejoining can trigger
+another welcome.
+
+The default introduces Guildhead, commands usable without linking, optional
+linking/main selection, privacy limits, and the source repository. It makes no
+server-specific authorship claims. For your own text, mount a UTF-8 file
+read-only and set its container path. For example, merge this into a local
+Compose override, preserving any existing ports, mounts, and settings:
+
+```yaml
+services:
+  bot:
+    environment:
+      GUILD_WELCOME_ENABLED: "true"
+      GUILD_WELCOME_MESSAGE_FILE: /config/welcome.txt
+    volumes:
+      - ./welcome-config:/config:ro
+```
+
+Create `welcome-config/welcome.txt` before starting. Templates support `{help}`,
+`{wow}`, `{craft}`, `{lfg}`, `{roster}`, and `{character}` for configured slash
+command names, plus `{source}` for the GitHub repository. For example,
+`{character} link` renders the full linking command. Other braces remain literal.
+Keep rendered text between 1 and 2000 characters; invalid or unreadable files
+stop startup. Mentions and automatic link previews are disabled.
+
+Keep custom wording accurate: never promise zero risk or require linking to
+participate. Explain that Battle.net handles sign-in, user tokens are not
+stored, and saved guild-character data remains until unlinked. Describe
+Guildhead as convenience, not pressure about progression or gameplay roles.
+Custom templates are deployment configuration, separate from the data-volume
+backup. Restart Guildhead after editing the template.
+
 ## State and backups
 
 Compose mounts a named volume at `/data`. It contains:
@@ -53,7 +96,7 @@ Compose mounts a named volume at `/data`. It contains:
 | `guild-roster-<guild-slug>.json` | Confirmed members, pending observations, last successful stored poll time |
 | `crafters.json` | Self-registered crafter listings |
 | `lfg.json` | LFG groups and announcement tracking |
-| `character-links.json` | Dated ownership checks; no access tokens |
+| `character-links.json` | Dated ownership, selected mains, public class/profession snapshots; no access tokens |
 
 Keep the volume when replacing a container. `docker compose down -v` removes
 it; do not use that command for routine upgrades.
@@ -98,7 +141,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.9.0`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.10.0`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
@@ -124,6 +167,14 @@ file. Owners re-register in the appropriate server; old entries are never
 automatically exposed there. Previous releases reject schema v2 rather than
 misinterpreting the new scope. To downgrade, restore the pre-upgrade backup
 into a separate volume. Do not change the version number by hand.
+
+v1.10 adds optional main-selection and public profile fields to character links.
+Old links remain private until their owner selects a main. Older releases can
+read those links but may drop the new fields when writing. Profession choices
+now include gathering, Fishing, and First Aid; older releases reject crafter
+files containing those names. Use a pre-upgrade backup when downgrading.
+Discord role definitions and member assignments are not part of the data
+archive: disable role sync first and arrange any role rollback separately.
 
 Character linking adds a separate file and leaves existing roster, LFG, and
 crafter data alone. See the [linking guide](character-linking.md) for callback

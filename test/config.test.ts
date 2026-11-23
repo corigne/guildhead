@@ -10,6 +10,44 @@ import {
   readSecret,
 } from "../src/config.js";
 
+test("welcome DMs default off and require an explicit boolean", () => {
+  const previous = { ...process.env };
+  try {
+    Object.assign(process.env, { DISCORD_TOKEN: "test", DISCORD_CHANNEL_IDS: "123" });
+    delete process.env.GUILD_WELCOME_ENABLED;
+    delete process.env.GUILD_WELCOME_MESSAGE_FILE;
+    assert.equal(loadConfig().welcomeEnabled, false);
+    process.env.GUILD_WELCOME_ENABLED = "invalid";
+    assert.throws(() => loadConfig(), /GUILD_WELCOME_ENABLED must be true or false/);
+    process.env.GUILD_WELCOME_ENABLED = "true";
+    process.env.GUILD_WELCOME_MESSAGE_FILE = " /config/welcome.txt ";
+    const config = loadConfig();
+    assert.equal(config.welcomeEnabled, true);
+    assert.equal(config.welcomeMessageFile, "/config/welcome.txt");
+  } finally { process.env = previous; }
+});
+
+test("gates role synchronization on explicit configuration and character linking", () => {
+  const previous = { ...process.env };
+  try {
+    Object.assign(process.env, {
+      DISCORD_TOKEN: "test", DISCORD_CHANNEL_IDS: "123", GUILD_ROLE_SYNC_ENABLED: "invalid",
+    });
+    assert.throws(() => loadConfig(), /must be true or false/);
+    process.env.GUILD_ROLE_SYNC_ENABLED = "true";
+    delete process.env.BLIZZARD_OAUTH_REDIRECT_URI;
+    assert.throws(() => loadConfig(), /Role sync requires/);
+    Object.assign(process.env, {
+      BLIZZARD_OAUTH_REDIRECT_URI: "https://guildhead.example.org/oauth/battlenet/callback",
+      BLIZZARD_CLIENT_ID: "client", BLIZZARD_CLIENT_SECRET: "secret", BLIZZARD_GUILD_NAME: "Guild",
+      GUILD_ANNOUNCEMENT_CHANNEL_ID: "789",
+    });
+    assert.equal(loadConfig().roleSyncEnabled, true);
+    process.env.GUILD_ROLE_SYNC_ENABLED = "false";
+    assert.equal(loadConfig().roleSyncEnabled, false);
+  } finally { process.env = previous; }
+});
+
 test("reads a secret from its Docker secret file", () => {
   const directory = mkdtempSync(join(tmpdir(), "guildhead-"));
   const path = join(directory, "discord-token");

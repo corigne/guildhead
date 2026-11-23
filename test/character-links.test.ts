@@ -154,3 +154,33 @@ test("validates every retained ownership field and rejects ambiguous identities"
     ].map(entry => ({ ...state, links: [entry] })),
   ]) assert.throws(() => parseCharacterLinks(value));
 });
+
+test("persists main selection and public snapshots without reviving unlinked or refreshed ownership", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-main-store-"));
+  const store = new CharacterLinkStore(path);
+  const profile = { checkedAt: 2_000, characters: [{ ...link.characters[0]!, className: "Warrior", professions: [] }] };
+  try {
+    assert.equal(await store.saveProfile("20", "30", 1_000, profile), false);
+    await store.save(link);
+    await assert.rejects(store.selectMain("20", "30", "1"), /not in your synced/);
+    assert.equal(await store.saveProfile("20", "30", 999, profile), false);
+    assert.equal(await store.saveProfile("20", "30", 1_000, profile), true);
+    await assert.rejects(store.selectMain("20", "30", "999"), /not in your synced/);
+    await store.selectMain("20", "30", "1");
+    const saved = (await store.all())[0]!;
+    assert.equal(saved.mainCharacterId, "1");
+    assert.equal(saved.rolesManaged, true);
+    await store.save({ ...link, verifiedAt: 3_000 });
+    assert.equal((await store.get("20", "30"))?.mainCharacterId, "1");
+    assert.equal((await store.get("20", "30"))?.profile, undefined);
+    await store.save({ ...link, characters: [{ id: "2", name: "Alt" }] });
+    assert.equal((await store.get("20", "30"))?.mainCharacterId, undefined);
+    await store.remove("20", "30");
+    assert.equal(await store.saveProfile("20", "30", 1_000, profile), false);
+    for (const extra of [
+      { mainCharacterId: "999" }, { mainCharacterId: 1 }, { rolesManaged: "yes" },
+      { profile: null }, { profile: { ...profile, characters: [{ ...profile.characters[0]!, id: "999" }] } },
+    ]) assert.throws(() => parseCharacterLinks({ version: 1, links: [{ ...link, ...extra }] }));
+    assert.equal(parseCharacterLinks({ version: 1, links: [{ ...link, rolesManaged: false }] })[0]?.rolesManaged, false);
+  } finally { await rm(path, { recursive: true }); }
+});

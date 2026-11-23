@@ -10,6 +10,11 @@ export const professions = [
   "Leatherworking",
   "Tailoring",
   "Cooking",
+  "Mining",
+  "Herbalism",
+  "Skinning",
+  "Fishing",
+  "First Aid",
 ] as const;
 
 export type Profession = (typeof professions)[number];
