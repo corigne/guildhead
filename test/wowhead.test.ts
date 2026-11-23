@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   extractTopResults,
   findExactMatches,
+  findTopMatch,
   tooltipToText,
 } from "../src/wowhead.js";
 
@@ -69,6 +70,23 @@ test("formats Wowhead tooltip HTML as readable Discord text", () => {
     ),
     "Hearthstone\nItem Level 1\n\nUse: Returns you to <Home>.",
   );
+});
+
+test("uses the top supported result for explicit searches", () => {
+  assert.deepEqual(findTopMatch("classic", extractTopResults(html)), {
+    kind: "item",
+    name: "Hearthstone",
+    level: 1,
+    requiredLevel: 10,
+    quality: 1,
+    matches: [
+      {
+        flavor: "classic",
+        id: 6948,
+        url: "https://www.wowhead.com/classic/item=6948/hearthstone",
+      },
+    ],
+  });
 });
 
 test("separates nested tooltip tables and binding text", () => {

@@ -218,17 +218,57 @@ export function findExactMatches(
   return [];
 }
 
-async function searchFlavor(
+export function findTopMatch(
+  flavor: Flavor,
+  entries: readonly SearchEntry[],
+): WowheadEntity | undefined {
+  for (const entry of entries) {
+    const resultName = entityName(entry);
+    if (!resultName || !entry.url) {
+      continue;
+    }
+
+    const target = parseEntityUrl(entry.url);
+    if (!target) {
+      continue;
+    }
+
+    return {
+      kind: target.kind,
+      name: resultName,
+      ...(entry.lvjson?.level !== undefined
+        ? { level: entry.lvjson.level }
+        : {}),
+      ...(entry.lvjson?.reqlevel !== undefined
+        ? { requiredLevel: entry.lvjson.reqlevel }
+        : {}),
+      ...(entry.lvjson?.quality !== undefined
+        ? { quality: entry.lvjson.quality }
+        : {}),
+      matches: [
+        {
+          flavor,
+          id: entry.typeId ?? target.id,
+          url: absoluteUrl(entry.url),
+        },
+      ],
+    };
+  }
+
+  return undefined;
+}
+
+async function fetchSearchEntries(
   name: string,
   flavor: Flavor,
-): Promise<WowheadEntity[]> {
+): Promise<SearchEntry[]> {
   const definition = flavorDefinitions[flavor];
   const url = new URL(`${definition.path}search`, `${WOWHEAD_ORIGIN}/`);
   url.searchParams.set("q", name);
 
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "wow-forever-discord-bot/1.0",
+      "User-Agent": "guildhead/1.0",
       Accept: "text/html",
     },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -239,7 +279,14 @@ async function searchFlavor(
     );
   }
 
-  return findExactMatches(name, flavor, extractTopResults(await response.text()));
+  return extractTopResults(await response.text());
+}
+
+async function searchFlavor(
+  name: string,
+  flavor: Flavor,
+): Promise<WowheadEntity[]> {
+  return findExactMatches(name, flavor, await fetchSearchEntries(name, flavor));
 }
 
 function mergeEntities(entities: readonly WowheadEntity[]): WowheadEntity[] {
@@ -299,6 +346,16 @@ async function enrichEntity(entity: WowheadEntity): Promise<WowheadEntity> {
     ...(description ? { description } : {}),
     ...(tooltip.icon ? { icon: tooltip.icon } : {}),
   };
+}
+
+export async function searchReference(
+  query: string,
+  flavor: Flavor,
+): Promise<WowheadEntity | undefined> {
+  const exact = await searchFlavor(query, flavor);
+  const entity =
+    exact[0] ?? findTopMatch(flavor, await fetchSearchEntries(query, flavor));
+  return entity ? enrichEntity(entity) : undefined;
 }
 
 export async function lookupReference(

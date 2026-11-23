@@ -3,16 +3,22 @@ import {
   Client,
   Events,
   GatewayIntentBits,
-  type APIEmbed,
+  MessageFlags,
+  SlashCommandBuilder,
   type TextChannel,
   WebhookClient,
 } from "discord.js";
 
-import { buildEmbed } from "./embed.js";
-import { loadConfig } from "./config.js";
+import {
+  flavorDefinitions,
+  loadConfig,
+  type Flavor,
+} from "./config.js";
 import { extractReferences } from "./parser.js";
-import { buildTooltipCard } from "./tooltip-card.js";
-import { lookupReference } from "./wowhead.js";
+import {
+  buildReferenceResponse,
+  buildSearchResponse,
+} from "./response.js";
 
 const config = loadConfig();
 const configuredWebhook = config.webhookUrl
@@ -26,6 +32,27 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
+const wowCommand = new SlashCommandBuilder()
+  .setName("wow")
+  .setDescription("Search Wowhead and show a WoW tooltip")
+  .addStringOption((option) =>
+    option
+      .setName("query")
+      .setDescription("Item, quest, spell, NPC, or achievement")
+      .setRequired(true)
+      .setMaxLength(100),
+  )
+  .addStringOption((option) =>
+    option
+      .setName("database")
+      .setDescription("Wowhead database")
+      .addChoices(
+        ...Object.entries(flavorDefinitions).map(([value, definition]) => ({
+          name: definition.label,
+          value,
+        })),
+      ),
+  );
 
 async function webhookForChannel(channel: TextChannel): Promise<WebhookClient> {
   if (configuredWebhook) {
@@ -65,6 +92,13 @@ async function webhookForChannel(channel: TextChannel): Promise<WebhookClient> {
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
 
+  try {
+    await readyClient.application.commands.set([wowCommand.toJSON()]);
+    console.log("Registered /wow command");
+  } catch (error) {
+    console.error("Could not register Discord commands:", error);
+  }
+
   for (const channelId of config.channelIds) {
     try {
       const channel = await readyClient.channels.fetch(channelId);
@@ -93,48 +127,15 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   try {
-    const embeds: APIEmbed[] = [];
-    const files: { attachment: Buffer; name: string }[] = [];
-    for (const reference of references) {
-      const entities = await lookupReference(reference, config.flavors);
-      for (const entity of entities) {
-        const primaryMatch = entity.matches[0];
-        const imageName = primaryMatch
-          ? `wowhead-${entity.kind}-${primaryMatch.id}-${embeds.length}.png`
-          : undefined;
-        if (imageName) {
-          try {
-            files.push({
-              attachment: await buildTooltipCard(entity),
-              name: imageName,
-            });
-          } catch (error) {
-            console.error(`Could not render tooltip card for ${entity.name}:`, error);
-          }
-        }
-        embeds.push(
-          buildEmbed(
-            entity,
-            files.some((file) => file.name === imageName) ? imageName : undefined,
-          ).toJSON(),
-        );
-        if (embeds.length === 10) {
-          break;
-        }
-      }
-      if (embeds.length === 10) {
-        break;
-      }
-    }
+    const response = await buildReferenceResponse(references, config.flavors);
 
-    if (embeds.length > 0) {
+    if (response.embeds.length > 0) {
       if (message.channel.type !== ChannelType.GuildText) {
         throw new Error(`Channel ${message.channelId} is not a guild text channel`);
       }
       const webhook = await webhookForChannel(message.channel);
       await webhook.send({
-        embeds,
-        files,
+        ...response,
         allowedMentions: { parse: [] },
       });
     }
@@ -143,6 +144,56 @@ client.on(Events.MessageCreate, async (message) => {
       `Failed to enrich Discord message ${message.id}:`,
       error,
     );
+  }
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== "wow") {
+    return;
+  }
+
+  const query = interaction.options.getString("query", true);
+  const requestedFlavor = interaction.options.getString("database");
+  const flavor = (requestedFlavor as Flavor | null) ?? config.flavors[0];
+  if (!flavor) {
+    await interaction.reply({
+      content: "Guildhead has no configured Wowhead database.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const linkedChannel = config.channelIds.has(interaction.channelId);
+  await interaction.deferReply(
+    linkedChannel ? { flags: MessageFlags.Ephemeral } : undefined,
+  );
+
+  try {
+    const response = await buildSearchResponse(query, flavor);
+    if (response.embeds.length === 0) {
+      await interaction.editReply(`No Wowhead result found for \`${query}\`.`);
+      return;
+    }
+
+    if (linkedChannel) {
+      if (interaction.channel?.type !== ChannelType.GuildText) {
+        throw new Error(
+          `Channel ${interaction.channelId} is not a guild text channel`,
+        );
+      }
+      const webhook = await webhookForChannel(interaction.channel);
+      await webhook.send({
+        ...response,
+        allowedMentions: { parse: [] },
+      });
+      await interaction.editReply(`Posted the top ${flavorDefinitions[flavor].label} result.`);
+      return;
+    }
+
+    await interaction.editReply(response);
+  } catch (error) {
+    console.error(`Failed /wow query "${query}":`, error);
+    await interaction.editReply("Guildhead could not complete that Wowhead search.");
   }
 });
 

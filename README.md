@@ -23,6 +23,7 @@ and Wowhead links.
 - Items, quests, spells, NPCs, and achievements
 - Up to three unique bracketed links per message
 - Multiple tooltip cards grouped into one Discord message
+- `/wow` search command usable in any Discord channel
 - Exact-name matching to avoid unrelated search results
 - 24-hour lookup cache to reduce Wowhead traffic
 - Docker and Docker Compose deployment
@@ -81,6 +82,16 @@ Supported database values:
 
 `DISCORD_WEBHOOK_URL` is optional. When omitted, Guildhead automatically
 creates and reuses a webhook in each configured channel.
+
+## Commands
+
+```text
+/wow query:<name> database:<optional database>
+```
+
+`/wow` returns the top Wowhead result. In a WoW-linked channel, Guildhead posts
+through its managed webhook and acknowledges the command privately. In normal
+Discord channels, the command response appears directly.
 
 ## Run with Docker Compose
 
