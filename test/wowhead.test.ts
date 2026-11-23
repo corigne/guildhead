@@ -70,3 +70,14 @@ test("formats Wowhead tooltip HTML as readable Discord text", () => {
     "Hearthstone\nItem Level 1\n\nUse: Returns you to <Home>.",
   );
 });
+
+test("separates nested tooltip tables and binding text", () => {
+  assert.equal(
+    tooltipToText(
+      '<table><tr><td><b>Ranger Bow</b><br>Item Level 25<br>' +
+        'Binds when equipped<table><tr><td>Ranged</td><th>Bow</th></tr></table>' +
+        '</td></tr></table>',
+    ),
+    "Ranger Bow\nItem Level 25\nBinds when Equipped\nRanged Bow",
+  );
+});

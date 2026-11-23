@@ -85,9 +85,16 @@ export function tooltipToText(html: string): string {
     html
       .replace(/<!--[\s\S]*?-->/g, "")
       .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<table\b[^>]*>/gi, "\n")
       .replace(/<\/(?:p|div|table|tr)>/gi, "\n")
+      .replace(/<\/(?:td|th)>/gi, " ")
       .replace(/<[^>]+>/g, ""),
   )
+    .replace(
+      /\bBinds when (equipped|picked up|used)\b/gi,
+      (_match, state: string) =>
+        `Binds when ${state.charAt(0).toUpperCase()}${state.slice(1).toLowerCase()}`,
+    )
     .replace(
       /Unique(?=(?:One-Hand|Two-Hand|Main Hand|Off Hand))/g,
       "Unique\n",
