@@ -115,6 +115,11 @@ record. Only characters still in the confirmed guild roster contribute to
 roles or synced crafters. Public snapshots cannot prove continued ownership.
 Other Discord servers cannot use the configured guild roster for linking.
 
+Some low-level characters return HTTP 404 for public professions. Guildhead
+labels that data unavailable, not "no professions"; those characters remain
+selectable as mains and do not block other characters' skills. If previously
+available data becomes unavailable, the last good snapshot is retained.
+
 Selecting a main opts into public crafter listings. `/craft find` combines
 synced skills with manual registrations, prefers the API snapshot for the same
 owner/character, and retains manual notes as self-reported. Skill snapshots do
@@ -138,6 +143,10 @@ Guildhead is authoritative for class/profession roles of users who select a
 main. Member-update events reconcile conflicting assignments (including
 Carl-bot reactions), with a ten-minute periodic fallback. It changes individual
 managed roles rather than replacing the member's complete role list.
+If any linked character's professions are unavailable, known profession roles
+can be added but existing profession roles are not removed based on missing
+data. Class-role reconciliation still works. Full profession reconciliation
+resumes after the next successful complete refresh.
 Unlinked users remain outside this authority. Other Carl-bot preferences stay
 untouched. Retiring Carl's old class menu is recommended to avoid misleading
 choices, but Guildhead does not delete it or edit Carl-bot's configuration.

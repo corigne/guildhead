@@ -53,7 +53,7 @@ export async function handleCharacterMain(
       const link = (await links.list(guildId, userId))!;
       const name = link.characters.find(character => character.id === characterId)!.name;
       await interaction.editReply({
-        content: `Main character: **${escapeMarkdown(name)}**. Professions are synced. ${sync.rolesEnabled ? "Class and profession roles are updated." : "Role assignment is awaiting server-operator setup."}`,
+        content: `Main character: **${escapeMarkdown(name)}**. Available profession data is synced. ${sync.rolesEnabled ? "Class and known profession roles are updated; unavailable data never removes profession roles." : "Role assignment is awaiting server-operator setup."}`,
         components: [], allowedMentions: { parse: [] },
       });
     } else {

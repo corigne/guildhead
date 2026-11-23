@@ -19,6 +19,31 @@ const skills = [
   { name: "Mining" as const, skill: 148, maxSkill: 225 },
 ];
 
+test("keeps unavailable low-level alts selectable without blocking available skills or erasing last-good profiles", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-sync-unavailable-"));
+  const store = new CharacterLinkStore(path);
+  const alt = { ...member, id: "2", name: "Alt", slug: "alt", level: 1 };
+  let unavailable = "2";
+  const sync = new CharacterSync(store, {
+    characterProfessions: async (_slug, id) => id === unavailable ? undefined : skills,
+  }, async () => initialRosterState([member, alt]), "20", "us", undefined, () => 2_000);
+  try {
+    await store.save(link);
+    await sync.syncOwner("20", "30");
+    assert.equal((await store.get("20", "30"))?.profile?.characters[1]?.professionsUnavailable, true);
+    await sync.selectMain("20", "30", "2");
+    assert.equal((await store.get("20", "30"))?.mainCharacterId, "2");
+    assert.equal((await sync.findCrafters("20", "Mining")).length, 1);
+    const previous = (await store.get("20", "30"))?.profile;
+    unavailable = "1";
+    await assert.rejects(sync.syncOwner("20", "30", true), /last good snapshot/);
+    assert.deepEqual((await store.get("20", "30"))?.profile, previous);
+    unavailable = "";
+    await sync.syncOwner("20", "30", true);
+    assert.equal((await sync.findCrafters("20", "Mining")).length, 2);
+  } finally { await rm(path, { recursive: true }); }
+});
+
 test("syncs confirmed owned profiles, caches public data for six hours, and publishes only after main selection", async () => {
   const path = await mkdtemp(join(tmpdir(), "guildhead-sync-"));
   const store = new CharacterLinkStore(path);

@@ -60,10 +60,18 @@ export class CharacterSync {
         const characters = [];
         for (const owned of link.characters) {
           const member = roster.members[owned.id];
-          if (member) characters.push({
-            id: member.id, name: member.name, className: member.className,
-            professions: await this.blizzard.characterProfessions(member.slug, member.id),
-          });
+          if (member) {
+            const professions = await this.blizzard.characterProfessions(member.slug, member.id);
+            const previous = link.profile?.characters.find(character => character.id === member.id);
+            if (professions === undefined && previous && !previous.professionsUnavailable) {
+              throw new Error("Public professions became unavailable; keeping the last good snapshot");
+            }
+            characters.push({
+              id: member.id, name: member.name, className: member.className,
+              professions: professions ?? [],
+              ...(professions === undefined ? { professionsUnavailable: true } : {}),
+            });
+          }
         }
         await this.store.saveProfile(guildId, userId, link.verifiedAt, { checkedAt: this.now(), characters });
         link = await this.store.get(guildId, userId);

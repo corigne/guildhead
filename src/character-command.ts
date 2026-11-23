@@ -32,7 +32,7 @@ function linkEmbed(link: CharacterLink): EmbedBuilder {
   if (link.profile) embed.addFields({
     name: "Blizzard profession snapshot",
     value: link.profile.characters.slice(0, 8).map(character =>
-      `${escapeMarkdown(character.name)}${character.id === link.mainCharacterId ? " (main)" : ""}: ${character.professions.map(profession => `${profession.name} ${profession.skill}/${profession.maxSkill}`).join(", ") || "No professions"}`,
+      `${escapeMarkdown(character.name)}${character.id === link.mainCharacterId ? " (main)" : ""}: ${character.professionsUnavailable ? "Public professions unavailable" : character.professions.map(profession => `${profession.name} ${profession.skill}/${profession.maxSkill}`).join(", ") || "No professions"}`,
     ).join("\n").slice(0, 900) || "No linked characters are in the current confirmed guild roster.",
   }, { name: "Professions checked", value: `<t:${Math.floor(link.profile.checkedAt / 1000)}:R>. Public data refreshes every six hours; ownership is a separate dated check.` });
   return embed;

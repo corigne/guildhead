@@ -114,6 +114,8 @@ test("provides main setup and API-backed profile details and reports role cleanu
     await store.save({ guildId: "20", discordUserId: "30", region: "us", verifiedAt: 1_000, rolesManaged: true, characters: [{ id: "1", name: "Anvil" }] });
     await store.saveProfile("20", "30", 1_000, { checkedAt: 2_000, characters: [{ id: "1", name: "Anvil", className: "Warrior", professions: [] }] });
     assert.match(await run("list"), /No professions/);
+    await store.saveProfile("20", "30", 1_000, { checkedAt: 2_000, characters: [{ id: "1", name: "Anvil", className: "Warrior", professions: [], professionsUnavailable: true }] });
+    assert.match(await run("list"), /Public professions unavailable/);
     roster = initialRosterState([]);
     await sync.syncOwner("20", "30", true);
     assert.match(await run("list"), /No linked characters are in the current/);

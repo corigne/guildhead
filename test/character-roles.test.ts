@@ -59,6 +59,15 @@ test("reuses class roles, deduplicates alt professions, and changes only managed
   f.current.set("mage", true);
   await f.sync.sync(link);
   assert.deepEqual(f.actions, ["remove:mage"]);
+  f.current.set("Alchemy", true);
+  f.current.set("mage", true);
+  const unavailable = { ...link, profile: { ...link.profile!, characters: [
+    link.profile!.characters[0]!, { ...link.profile!.characters[1]!, professions: [], professionsUnavailable: true },
+  ] } };
+  await f.sync.sync(unavailable);
+  assert(f.current.has("Alchemy") && !f.current.has("mage"));
+  await f.sync.sync(link);
+  assert(!f.current.has("Alchemy"));
   const withoutMain = { ...link };
   delete withoutMain.mainCharacterId;
   await f.sync.sync(withoutMain);

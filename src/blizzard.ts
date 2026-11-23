@@ -142,7 +142,7 @@ export class BlizzardClient {
     return token.accessToken;
   }
 
-  public async characterProfessions(slug: string, characterId: string): Promise<ProfessionSkill[]> {
+  public async characterProfessions(slug: string, characterId: string): Promise<ProfessionSkill[] | undefined> {
     const url = new URL(
       `/profile/wow/character/${encodeURIComponent(slug)}/professions`,
       `https://${this.config.region}.api.blizzard.com`,
@@ -153,6 +153,7 @@ export class BlizzardClient {
       headers: { Authorization: `Bearer ${await this.token()}`, Accept: "application/json" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
+    if (response.status === 404) return undefined;
     if (!response.ok) throw new Error(`Blizzard professions request failed with HTTP ${response.status}`);
     return parseBlizzardProfessions(await response.json(), characterId);
   }

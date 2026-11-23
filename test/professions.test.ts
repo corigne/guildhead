@@ -32,6 +32,8 @@ test("validates Forever profession skills and character identity without trustin
 
 test("validates persisted public snapshots and rejects malformed or duplicated data", () => {
   assert.deepEqual(parseProfileSnapshot(snapshot), snapshot);
+  assert.equal(parseProfileSnapshot({ ...snapshot, characters: [{ ...character, professions: [], professionsUnavailable: true }] }).characters[0]?.professionsUnavailable, true);
+  assert.equal(parseProfileSnapshot({ ...snapshot, characters: [{ ...character, professionsUnavailable: false }] }).characters[0]?.professionsUnavailable, false);
   assert.deepEqual(parseProfileSnapshot({ checkedAt: 1_000, characters: [] }).characters, []);
   for (const value of [
     null, [], {}, ...["1000", 0, 1.5, 8_640_000_000_000_001].map(checkedAt => ({ ...snapshot, checkedAt })),
@@ -39,6 +41,7 @@ test("validates persisted public snapshots and rejects malformed or duplicated d
     ...[null, { ...character, id: 1 }, { ...character, id: "bad" }, { ...character, name: null },
       { ...character, name: " " }, { ...character, className: null }, { ...character, className: "" },
       { ...character, professions: {} }, { ...character, professions: [skill, skill] },
+      { ...character, professionsUnavailable: "yes" }, { ...character, professionsUnavailable: true },
       ...[null, { ...skill, name: "Unknown" }, { ...skill, skill: -1 }].map(profession => ({ ...character, professions: [profession] })),
     ].map(item => ({ ...snapshot, characters: [item] })),
   ]) assert.throws(() => parseProfileSnapshot(value));
@@ -46,7 +49,7 @@ test("validates persisted public snapshots and rejects malformed or duplicated d
 
 test("fetches fixed regional profession endpoints with app tokens, encoded slugs, and response validation", async context => {
   for (const region of ["us", "eu"] as const) {
-    let fail = false;
+    let status = 200;
     const calls: string[] = [];
     context.mock.method(globalThis, "fetch", async (input: string | URL, options: RequestInit) => {
       const url = new URL(input);
@@ -57,11 +60,13 @@ test("fetches fixed regional profession endpoints with app tokens, encoded slugs
       assert.equal(url.searchParams.get("namespace"), `profile-forever-${region}`);
       assert.equal(url.searchParams.get("locale"), region === "eu" ? "en_GB" : "en_US");
       assert.equal((options.headers as Record<string, string>).Authorization, "Bearer app-token");
-      return Response.json(response, { status: fail ? 503 : 200 });
+      return Response.json(response, { status });
     });
     const client = new BlizzardClient({ region, clientId: "id", clientSecret: "secret" } as GuildRosterConfig);
     assert.deepEqual(await client.characterProfessions("anvil/smith", "1"), [skill]);
-    fail = true;
+    status = 404;
+    assert.equal(await client.characterProfessions("anvil/smith", "1"), undefined);
+    status = 503;
     await assert.rejects(client.characterProfessions("anvil/smith", "1"), /503/);
     assert.equal(calls.filter(url => url.includes("oauth.battle.net")).length, 1);
     context.mock.restoreAll();

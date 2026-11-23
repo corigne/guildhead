@@ -64,6 +64,9 @@ linked guild characters' professions. Member-update events and periodic
 reconciliation keep only those managed role assignments consistent; unrelated
 roles are not changed. This requires Server Members Intent and exposes Discord
 member/role metadata to the bot, not private messages or online presence.
+Unavailable public profession data is marked explicitly, not treated as proof
+that a character has no professions. Existing profession roles are preserved
+while any linked character's data is unavailable.
 `/character unlink` removes that user's saved link in the current
 server, stops synced crafter listings, cancels pending logins, and attempts to
 remove class/profession roles if the user opted into setup and role sync is

@@ -5,6 +5,7 @@ import type { CharacterLink } from "./character-links.js";
 import { professionNames } from "./professions.js";
 
 const managedNames = [...new Set([...Object.values(CLASS_NAMES), ...Object.values(professionNames)])];
+const professionRoleNames = new Set<string>(Object.values(professionNames));
 const dangerousPermissions =
   PermissionFlagsBits.Administrator | PermissionFlagsBits.ManageRoles |
   PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageChannels |
@@ -50,7 +51,7 @@ export class DiscordCharacterRoles {
     for (const character of characters) {
       for (const profession of character.professions) desired.add(roles.get(profession.name)!.id);
     }
-    await this.apply(guild, link.discordUserId, roles, desired);
+    await this.apply(guild, link.discordUserId, roles, desired, characters.some(character => character.professionsUnavailable));
   }
 
   public async clear(guildId: string, userId: string): Promise<void> {
@@ -59,10 +60,10 @@ export class DiscordCharacterRoles {
     await this.apply(guild, userId, await this.roles(guild, false), new Set());
   }
 
-  private async apply(guild: Guild, userId: string, roles: ReadonlyMap<string, Role>, desired: ReadonlySet<string>): Promise<void> {
+  private async apply(guild: Guild, userId: string, roles: ReadonlyMap<string, Role>, desired: ReadonlySet<string>, preserveProfessions = false): Promise<void> {
     const member = await guild.members.fetch({ user: userId, force: true });
-    for (const role of roles.values()) {
-      if (member.roles.cache.has(role.id) && !desired.has(role.id)) {
+    for (const [name, role] of roles) {
+      if (member.roles.cache.has(role.id) && !desired.has(role.id) && !(preserveProfessions && professionRoleNames.has(name))) {
         await member.roles.remove(role.id, "Guildhead main character/profession sync");
       }
     }

@@ -26,6 +26,7 @@ export interface SyncedCharacter {
   name: string;
   className: string;
   professions: ProfessionSkill[];
+  professionsUnavailable?: boolean;
 }
 export interface CharacterProfileSnapshot {
   checkedAt: number;
@@ -76,6 +77,8 @@ export function parseProfileSnapshot(value: unknown): CharacterProfileSnapshot {
     assert(typeof character.name === "string" && character.name.trim().length > 0, "Invalid synced character name");
     assert(typeof character.className === "string" && character.className.length > 0, "Invalid synced character class");
     assert(Array.isArray(character.professions), "Missing character professions");
+    assert(character.professionsUnavailable === undefined || typeof character.professionsUnavailable === "boolean", "Invalid profession availability");
+    assert(!character.professionsUnavailable || character.professions.length === 0, "Unavailable professions must not claim skills");
     const names = new Set<string>();
     for (const profession of character.professions as unknown[]) {
       record(profession);
