@@ -20,6 +20,8 @@ Optional settings:
 | `DISCORD_CRAFT_COMMAND_NAME` | `craft` | Crafter directory |
 | `DISCORD_LFG_COMMAND_NAME` | `lfg` | Group finding |
 | `DISCORD_ROSTER_COMMAND_NAME` | `roster` | Private saved-roster lookup |
+| `DISCORD_CHARACTER_COMMAND_NAME` | `character` | Private character linking |
+| `BLIZZARD_OAUTH_REDIRECT_URI` | unset | Enable Battle.net consent callback; requires roster configuration |
 | `DISCORD_WEBHOOK_URL` | unset | Use a supplied webhook instead of managing one per channel |
 | `GUILDHEAD_DATA_DIR` | `/data` | Persistent JSON state |
 
@@ -51,6 +53,7 @@ Compose mounts a named volume at `/data`. It contains:
 | `guild-roster-<guild-slug>.json` | Confirmed members, pending observations, last successful stored poll time |
 | `crafters.json` | Self-registered crafter listings |
 | `lfg.json` | LFG groups and announcement tracking |
+| `character-links.json` | Confirmed ownership links; no access tokens |
 
 Keep the volume when replacing a container. `docker compose down -v` removes
 it; do not use that command for routine upgrades.
@@ -95,7 +98,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.7.0`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.8.0`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
@@ -113,6 +116,19 @@ v1.7 adds an optional roster check timestamp without changing the state version
 or resetting confirmed members and pending observations. Older files remain
 usable; `/roster` reports unknown age until a successful poll stores the time.
 Older releases ignore the timestamp and may drop it on their next write.
+
+v1.8 reads old crafter files without assigning their entries to a server. On
+the first successful registration or removal it writes schema v2, preserving
+unscoped entries in `legacyListings`. Searches do not migrate or rewrite the
+file. Owners re-register in the appropriate server; old entries are never
+automatically exposed there. Previous releases reject schema v2 rather than
+misinterpreting the new scope. To downgrade, restore the pre-upgrade backup
+into a separate volume. Do not change the version number by hand.
+
+Character linking adds a separate file and leaves existing roster, LFG, and
+crafter data alone. See the [linking guide](character-linking.md) for callback
+hosting and consent setup. `compose.override.yaml` is ignored by Git and can
+hold non-secret host-local ports and callback configuration.
 
 ## Troubleshooting
 

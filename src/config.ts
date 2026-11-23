@@ -17,6 +17,8 @@ export interface Config {
   craftCommandName: string;
   lfgCommandName: string;
   rosterCommandName: string;
+  characterCommandName: string;
+  characterRedirectUri?: string;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
   dataDir: string;
@@ -189,11 +191,32 @@ export function loadConfig(): Config {
     "roster",
     "DISCORD_ROSTER_COMMAND_NAME",
   );
+  const characterCommandName = parseCommandName(
+    process.env.DISCORD_CHARACTER_COMMAND_NAME,
+    "character",
+    "DISCORD_CHARACTER_COMMAND_NAME",
+  );
   const dataDir = process.env.GUILDHEAD_DATA_DIR?.trim() || "/data";
   const flavors = parseFlavors(
     process.env.WOWHEAD_FLAVORS?.trim() || "forever",
   );
   const guildRoster = parseGuildRosterConfig(dataDir);
+  const characterRedirectUri = process.env.BLIZZARD_OAUTH_REDIRECT_URI?.trim();
+  if (characterRedirectUri) {
+    let url: URL;
+    try {
+      url = new URL(characterRedirectUri);
+    } catch {
+      throw new Error("BLIZZARD_OAUTH_REDIRECT_URI must be a valid HTTPS callback URL");
+    }
+    if (
+      url.protocol !== "https:" || url.username || url.password ||
+      url.pathname !== "/oauth/battlenet/callback" || url.search || url.hash
+    ) {
+      throw new Error("BLIZZARD_OAUTH_REDIRECT_URI must use HTTPS and /oauth/battlenet/callback without credentials, query, or fragment");
+    }
+    if (!guildRoster) throw new Error("Character linking requires the Blizzard guild roster configuration");
+  }
 
   if (channelIds.size === 0) {
     throw new Error("DISCORD_CHANNEL_IDS must contain at least one channel ID");
@@ -204,7 +227,8 @@ export function loadConfig(): Config {
   if (
     new Set([
       commandName, helpCommandName, craftCommandName, lfgCommandName, rosterCommandName,
-    ]).size !== 5
+      characterCommandName,
+    ]).size !== 6
   ) {
     throw new Error(
       "Discord command names must be different",
@@ -221,6 +245,8 @@ export function loadConfig(): Config {
     craftCommandName,
     lfgCommandName,
     rosterCommandName,
+    characterCommandName,
+    ...(characterRedirectUri ? { characterRedirectUri } : {}),
     channelIds,
     flavors,
     dataDir,

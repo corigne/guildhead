@@ -5,7 +5,6 @@ import {
   Events,
   GatewayIntentBits,
   EmbedBuilder,
-  escapeMarkdown,
   MessageFlags,
   SlashCommandBuilder,
   type TextChannel,
@@ -22,17 +21,18 @@ import {
   buildReferenceResponse,
   buildSearchResponse,
 } from "./response.js";
-import { GuildRosterMonitor } from "./guild-roster.js";
-import {
-  CrafterDirectory,
-  professions,
-  type Profession,
-} from "./crafter-directory.js";
+import { GuildRosterMonitor, loadRosterState } from "./guild-roster.js";
+import { CrafterDirectory } from "./crafter-directory.js";
+import { buildCraftCommand, handleCraftCommand } from "./craft-command.js";
 import { LfgDirectory } from "./lfg-directory.js";
 import { buildLfgCommand, handleLfgCommand } from "./lfg-command.js";
 import { LfgCommunications } from "./lfg-communications.js";
 import { DiscordLfgTransport } from "./lfg-discord.js";
 import { buildRosterCommand, handleRosterCommand } from "./roster-command.js";
+import { BattleNetUserClient } from "./battlenet-user.js";
+import { CharacterLinks, CharacterLinkStore } from "./character-links.js";
+import { startCharacterCallback } from "./character-callback.js";
+import { buildCharacterCommand, handleCharacterCommand } from "./character-command.js";
 
 const config = loadConfig();
 const configuredWebhook = config.webhookUrl
@@ -43,6 +43,17 @@ const crafterDirectory = new CrafterDirectory(config.dataDir);
 const lfgDirectory = new LfgDirectory(config.dataDir);
 const lfgCommand = buildLfgCommand(config.lfgCommandName);
 const rosterCommand = buildRosterCommand(config.rosterCommandName);
+const craftCommand = buildCraftCommand(config.craftCommandName);
+const characterCommand = buildCharacterCommand(config.characterCommandName);
+const guildRosterConfig = config.guildRoster;
+const characterLinks = config.characterRedirectUri && guildRosterConfig
+  ? new CharacterLinks(
+      new CharacterLinkStore(config.dataDir),
+      new BattleNetUserClient(guildRosterConfig, config.characterRedirectUri),
+      () => loadRosterState(guildRosterConfig),
+      guildRosterConfig.region,
+    )
+  : undefined;
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -83,64 +94,6 @@ const wowCommand = new SlashCommandBuilder()
 const helpCommand = new SlashCommandBuilder()
   .setName(config.helpCommandName)
   .setDescription("Show Guildhead commands and usage");
-const professionChoices = professions.map((profession) => ({
-  name: profession,
-  value: profession,
-}));
-const craftCommand = new SlashCommandBuilder()
-  .setName(config.craftCommandName)
-  .setDescription("Find and register guild crafters")
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("find")
-      .setDescription("Find guild crafters by profession")
-      .addStringOption((option) =>
-        option
-          .setName("profession")
-          .setDescription("Crafting profession")
-          .setRequired(true)
-          .addChoices(...professionChoices),
-      ),
-  )
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("register")
-      .setDescription("Register or update one of your professions")
-      .addStringOption((option) =>
-        option
-          .setName("character")
-          .setDescription("Your character name")
-          .setRequired(true)
-          .setMinLength(2)
-          .setMaxLength(24),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("profession")
-          .setDescription("Crafting profession")
-          .setRequired(true)
-          .addChoices(...professionChoices),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("notes")
-          .setDescription("Specialization, rare recipes, or availability")
-          .setMaxLength(120),
-      ),
-  )
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("remove")
-      .setDescription("Remove one of your profession listings")
-      .addStringOption((option) =>
-        option
-          .setName("profession")
-          .setDescription("Crafting profession")
-          .setRequired(true)
-          .addChoices(...professionChoices),
-      ),
-  );
-
 async function webhookForChannel(channel: TextChannel): Promise<WebhookClient> {
   if (configuredWebhook) {
     return configuredWebhook;
@@ -192,9 +145,10 @@ client.once(Events.ClientReady, async (readyClient) => {
       craftCommand.toJSON(),
       lfgCommand.toJSON(),
       rosterCommand.toJSON(),
+      characterCommand.toJSON(),
     ]);
     console.log(
-      `Registered /${config.commandName}, /${config.helpCommandName}, /${config.craftCommandName}, /${config.lfgCommandName}, and /${config.rosterCommandName} commands`,
+      `Registered /${config.commandName}, /${config.helpCommandName}, /${config.craftCommandName}, /${config.lfgCommandName}, /${config.rosterCommandName}, and /${config.characterCommandName} commands`,
     );
   } catch (error) {
     console.error("Could not register Discord commands:", error);
@@ -287,8 +241,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           name: `/${config.craftCommandName}`,
           value:
             "`find profession`: find registered guild crafters\n" +
-            "`register character profession notes?`: add or update your listing\n" +
-            "`remove profession`: remove your listing",
+            "`register character profession notes?`: add or update a character in this server\n" +
+            "`remove profession character?`: remove one of your listings",
         },
         {
           name: `/${config.lfgCommandName}`,
@@ -302,6 +256,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
           value:
             "`name? class? level? rank?`: filter the saved guild roster\n" +
             "Private results with snapshot age; not live online status",
+        },
+        {
+          name: `/${config.characterCommandName}`,
+          value:
+            "`link`: authorize your own Battle.net account\n" +
+            "`list|confirm|unlink`: review, save, or remove your guild-character links",
         },
         {
           name: "Automatic tooltips",
@@ -322,6 +282,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
+  if (interaction.commandName === config.characterCommandName) {
+    await handleCharacterCommand(interaction, client, config.guildRoster, characterLinks);
+    return;
+  }
+
   if (interaction.commandName === config.rosterCommandName) {
     await handleRosterCommand(interaction, client, config.guildRoster);
     return;
@@ -338,104 +303,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.commandName === config.craftCommandName) {
-    const subcommand = interaction.options.getSubcommand();
-    const profession = interaction.options.getString(
-      "profession",
-      true,
-    ) as Profession;
-
-    try {
-      if (subcommand === "register") {
-        const characterName = interaction.options.getString(
-          "character",
-          true,
-        );
-        const notes = interaction.options.getString("notes")?.trim();
-        await crafterDirectory.register({
-          discordUserId: interaction.user.id,
-          characterName,
-          profession,
-          ...(notes ? { notes } : {}),
-        });
-        await interaction.reply({
-          content: `Registered **${escapeMarkdown(characterName)}** for **${profession}**.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-
-      if (subcommand === "remove") {
-        const removed = await crafterDirectory.remove(
-          interaction.user.id,
-          profession,
-        );
-        await interaction.reply({
-          content: removed
-            ? `Removed your **${profession}** listing.`
-            : `You do not have a **${profession}** listing.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-
-      const linkedChannel = config.channelIds.has(interaction.channelId);
-      await interaction.deferReply(
-        linkedChannel ? { flags: MessageFlags.Ephemeral } : undefined,
-      );
-      const listings = await crafterDirectory.find(profession);
-      if (listings.length === 0) {
-        await interaction.editReply(
-          `No **${profession}** crafters are registered yet.`,
-        );
-        return;
-      }
-
-      const shown = listings.slice(0, 15);
-      const lines = shown.map((listing) => {
-        const notes = listing.notes
-          ? ` - ${escapeMarkdown(listing.notes)}`
-          : "";
-        return `**${escapeMarkdown(listing.characterName)}** (<@${listing.discordUserId}>)${notes}`;
-      });
-      if (shown.length < listings.length) {
-        lines.push(`_And ${listings.length - shown.length} more._`);
-      }
-      const embed = new EmbedBuilder()
-        .setTitle(`${profession} crafters`)
-        .setColor(0xf0b132)
-        .setDescription(lines.join("\n"))
-        .setFooter({
-          text: `Use /${config.craftCommandName} register to add yourself`,
-        });
-      const response = {
-        embeds: [embed],
-        allowedMentions: { parse: [] as never[] },
-      };
-
-      if (linkedChannel) {
-        if (interaction.channel?.type !== ChannelType.GuildText) {
-          throw new Error(
-            `Channel ${interaction.channelId} is not a guild text channel`,
-          );
-        }
-        await (await webhookForChannel(interaction.channel)).send(response);
-        await interaction.editReply(`Posted ${profession} crafters.`);
-        return;
-      }
-
-      await interaction.editReply(response);
-    } catch (error) {
-      console.error(`Failed /${config.craftCommandName} ${subcommand}:`, error);
-      const message = "Guildhead could not update the crafter directory.";
-      if (interaction.replied || interaction.deferred) {
-        await interaction.editReply(message);
-      } else {
-        await interaction.reply({
-          content: message,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-    }
+    await handleCraftCommand(interaction, crafterDirectory, config.channelIds, webhookForChannel);
     return;
   }
 
@@ -491,5 +359,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
 });
+
+if (characterLinks && config.characterRedirectUri) {
+  await startCharacterCallback(characterLinks, config.characterRedirectUri, 8787);
+  console.log("Battle.net character callback listening on port 8787");
+}
 
 await client.login(config.token);

@@ -4,7 +4,7 @@ Effective date: November 23, 2026
 
 Guildhead scans messages only in Discord channel IDs configured by the
 operator. Slash commands may be used in other channels where the application
-is available; LFG and roster commands require a server.
+is available; crafter, LFG, roster, and character commands require a server.
 
 ## Data processed
 
@@ -23,11 +23,24 @@ ranks, plus the time of the last successful stored poll. This state detects
 changes and supplies private `/roster` results in the Discord server containing
 the configured announcement channel. Lookup filters are not persisted or sent
 to Blizzard. The state remains under the self-hosting operator's control.
-Crafter directory registrations store the
-registering Discord user ID, character name, profession, optional notes, and
-update time until the user removes that listing. Operational logs may contain
+Crafter directory registrations store the Discord server ID, registering user
+ID, character name, profession, optional notes, and update time until the owner
+removes that listing. Pre-v1.8 registrations lack server IDs and are retained
+in a separate legacy list, excluded from searches. Re-registering does not
+delete that old record; contact the operator for legacy-data removal.
+Operational logs may contain
 Discord message IDs, character names and error details, but not bot tokens or
 webhook URLs.
+
+Character linking is opt-in. The player authorizes `wow.profile` at Battle.net.
+An access token is used in memory to retrieve owned character IDs; it is not
+persisted. Only IDs and names matching the saved guild roster, region, Discord
+server/user IDs, and verification time are saved, after private review and
+confirmation in Discord. BattleTags, Battle.net account IDs, and unrelated alts
+are not retained. Pending logins and previews expire after ten minutes or a
+restart. `/character unlink` removes that user's saved link in the current
+server and cancels pending logins; it does not revoke the app at Battle.net.
+Battle.net permissions can be revoked separately in account settings.
 
 LFG state stores the Discord server ID, group ID, leader and member user IDs,
 activity name, capacity, expiry time, and announcement channel/message/webhook
@@ -47,7 +60,10 @@ message-retention policies.
 
 ## Third parties
 
-Guildhead communicates with Discord, Wowhead, and Wowhead's image CDN. Their
+Guildhead communicates with Discord, Blizzard/Battle.net, Wowhead, and Wowhead's
+image CDN. Public callback hosting may also pass through an operator's reverse
+proxy or Cloudflare. Do not log callback query strings, which contain short-lived
+authorization codes and login state. Their
 respective privacy policies govern data processed by those services.
 
 ## Self-hosted deployments

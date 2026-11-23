@@ -27,6 +27,8 @@ and Wowhead links.
 - Confirmed guild join and rank-change announcements from Blizzard roster data
 - Private roster lookup by character name, class, level, and rank
 - Guild-maintained crafter directory with find, register, and remove commands
+- Server-scoped crafter listings with multiple characters per profession
+- Opt-in Battle.net character ownership checks with private review and confirmation
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Updated LFG announcements and leader DMs when players join or leave
 - Exact-name matching to avoid unrelated search results
@@ -69,9 +71,12 @@ DISCORD_TOKEN=your-bot-token
 DISCORD_CHANNEL_IDS=123456789012345678
 ```
 
-The default commands are `/wow`, `/help`, `/craft`, `/lfg`, and `/roster`. The default
+The default commands are `/wow`, `/help`, `/craft`, `/lfg`, `/roster`, and
+`/character`. The default
 Wowhead database is Forever; no Blizzard credentials are needed for tooltips,
 crafters, or LFG. Blizzard credentials enable roster monitoring and lookup.
+Character linking also needs a public HTTPS callback registered with Battle.net;
+see [character linking](docs/character-linking.md).
 
 Multiple channel IDs and databases use comma-separated values:
 
@@ -131,7 +136,7 @@ silently storing or displaying partial data.
 /help
 /craft find profession:<profession>
 /craft register character:<name> profession:<profession> notes:<optional>
-/craft remove profession:<profession>
+/craft remove profession:<profession> character:<optional>
 /lfg create activity:<dungeon, quest, or raid> size:<optional, default 5>
 /lfg list
 /lfg show group:<group ID>
@@ -139,6 +144,10 @@ silently storing or displaying partial data.
 /lfg leave group:<group ID>
 /lfg close group:<group ID>
 /roster name:<optional> class:<optional> level:<optional> rank:<optional>
+/character link
+/character list
+/character confirm
+/character unlink
 ```
 
 Discord advertises the command description, query argument, and database
@@ -152,13 +161,34 @@ bot already owns `/wow`. Set `DISCORD_HELP_COMMAND_NAME=guildhead-help` when
 registered commands after Guildhead restarts.
 
 Set `DISCORD_CRAFT_COMMAND_NAME` to rename `/craft`. Crafter registrations are
-stored in the configured data directory and associate a Discord user ID with a
-character name, profession, and optional notes. Users can replace or remove
-their own listings.
+stored per Discord server. Registering another character no longer replaces an
+alt with the same profession. Re-registering the same name, ignoring case and
+extra spaces, updates that character's listing. Users can only remove their own
+listings in the current server. When several characters match a profession,
+`remove` requires `character`; it never deletes them all by accident.
+
+Pre-v1.8 listings have no server ID. They are preserved but excluded from
+searches; owners must re-register in the appropriate server. The bot does not
+guess where old registrations belong. Crafter and LFG commands require a server.
 
 `/wow` returns the top Wowhead result. In a WoW-linked channel, Guildhead
 posts through its managed webhook and acknowledges the command privately. In
 normal Discord channels, the command response appears directly.
+
+### Character ownership
+
+`/character link` privately starts Battle.net authorization. After consent,
+return to Discord and run `/character list` to review the matching guild
+characters, then `/character confirm` to save them. `/character unlink` removes
+your saved links and cancels pending logins.
+
+Only characters belonging to the authorized account and present in the saved
+guild roster are retained. The bot does not save access tokens, BattleTags, or
+unrelated alts. Proof is dated, not a promise of permanent ownership; it does not
+grant Discord roles or mark crafter professions as verified.
+
+Setup, tested API support, and limitations are in the
+[character-linking guide](docs/character-linking.md).
 
 ### Roster lookup
 

@@ -10,31 +10,43 @@ not a release-date promise.
 - Private `/help` and configurable command names.
 - Blizzard roster snapshots with confirmed join and rank announcements.
 - Self-registered crafter finder.
+- Server-scoped crafter listings, multiple characters per profession, and
+  tested ordinary/webhook delivery. Unscoped legacy records remain preserved
+  and hidden until owners re-register.
 - Persistent, server-scoped LFG groups with two-hour expiry.
 - Updated LFG announcements and join/leave notifications to group leaders.
   Delivery failures do not discard signups; failed post edits retry after
   restarts.
 - Private roster lookup by name, class, level, and numeric rank, using saved
   snapshots with stale/unknown-age labels.
+- Opt-in Battle.net character ownership linking with private review and
+  confirmation. Real-player consent is still needed to validate Forever's
+  user-token response on this deployment.
 
 ## Next
 
-1. Harden existing features: scope crafter listings to their server, support
-   multiple characters per crafter, and cover more Discord delivery paths.
-2. Add a useful handoff to established scheduling tools such as Raid-Helper.
+1. Validate character linking with a consenting player on the deployed
+   callback. Public character and profession endpoints return 200; app tokens
+   correctly receive 403 from the account endpoint.
+2. Use verified ownership as a foundation for profession lookup. Validate
+   skill/recipe payloads before presenting self-reported claims as verified.
+3. Add a useful handoff to established scheduling tools such as Raid-Helper.
    Do not build another raid calendar without a concrete unmet need.
-3. Link Discord users to verified characters only if the available Blizzard
-   authentication and character APIs support trustworthy ownership proof.
 
 ## Known limits
 
-Crafter entries are self-reported, not API-verified, and currently shared by
-all servers using one bot instance. One user can register only one character
-per profession. Run separate instances if that scope is unsuitable.
+Crafter entries remain self-reported. Character ownership checks do not prove
+profession skill, recipes, current guild membership, or continuous ownership,
+and do not grant Discord roles.
 
 Forever's roster API is undocumented and can change. Polling is not live
 presence. Discord activity and voice connections do not prove a character is
 online in WoW.
+
+Forever's user-token account endpoint is
+[reported working](https://mhuijskens.com/WoWForever/Api/#the-account-profile).
+Character linking needs an authorization-code consent flow and callback
+service; it is not blocked by a known lack of Blizzard ownership APIs.
 
 ## Not priorities
 
