@@ -14,7 +14,7 @@ Check [Hearthstone] and [Thunderfury, Blessed Blade of the Windseeker]
 
 produce one Guildhead response containing one WoW-style tooltip image per
 link. Cards include item icons, quality colors, requirements, stats, effects,
-Wowhead links, and a link back to the source message.
+and Wowhead links.
 
 ## Features
 

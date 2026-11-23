@@ -35,7 +35,6 @@ function iconUrl(icon: string | undefined): string | undefined {
 
 export function buildEmbed(
   entity: WowheadEntity,
-  sourceUrl?: string,
   imageName?: string,
 ): EmbedBuilder {
   const primaryMatch = entity.matches[0];
@@ -85,12 +84,6 @@ export function buildEmbed(
     if (thumbnail) {
       embed.setThumbnail(thumbnail);
     }
-  }
-  if (sourceUrl) {
-    embed.addFields({
-      name: "Guild chat",
-      value: `[Open source message](${sourceUrl})`,
-    });
   }
   return embed;
 }

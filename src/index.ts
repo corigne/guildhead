@@ -115,7 +115,6 @@ client.on(Events.MessageCreate, async (message) => {
         embeds.push(
           buildEmbed(
             entity,
-            embeds.length === 0 ? message.url : undefined,
             files.some((file) => file.name === imageName) ? imageName : undefined,
           ).toJSON(),
         );
