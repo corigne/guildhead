@@ -5,6 +5,9 @@ import type { WowheadEntity } from "./wowhead.js";
 const CARD_WIDTH = 640;
 const PADDING = 22;
 const LINE_HEIGHT = 24;
+const BODY_FONT_SIZE = 18;
+const TITLE_FONT_SIZE = 24;
+const TITLE_LINE_HEIGHT = 30;
 const QUALITY_COLORS = [
   "#9d9d9d",
   "#ffffff",
@@ -37,21 +40,57 @@ function escapeXml(value: string): string {
     .replaceAll("'", "&apos;");
 }
 
-function wrapLine(value: string, maxCharacters: number): string[] {
+function estimatedTextWidth(value: string, fontSize: number): number {
+  let ems = 0;
+  for (const character of value) {
+    if (character === " ") {
+      ems += 0.32;
+    } else if (/[ilI.,'!:;|]/.test(character)) {
+      ems += 0.28;
+    } else if (/[MW@#%&]/.test(character)) {
+      ems += 0.9;
+    } else if (/[A-Z0-9]/.test(character)) {
+      ems += 0.64;
+    } else {
+      ems += 0.54;
+    }
+  }
+  return ems * fontSize;
+}
+
+function wrapLine(value: string, maxWidth: number, fontSize: number): string[] {
   const words = value.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
 
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxCharacters) {
+    if (estimatedTextWidth(candidate, fontSize) <= maxWidth) {
       current = candidate;
       continue;
     }
     if (current) {
       lines.push(current);
     }
-    current = word;
+    if (estimatedTextWidth(word, fontSize) <= maxWidth) {
+      current = word;
+      continue;
+    }
+
+    let fragment = "";
+    for (const character of word) {
+      const candidateFragment = `${fragment}${character}`;
+      if (
+        fragment &&
+        estimatedTextWidth(candidateFragment, fontSize) > maxWidth
+      ) {
+        lines.push(fragment);
+        fragment = character;
+      } else {
+        fragment = candidateFragment;
+      }
+    }
+    current = fragment;
   }
   if (current) {
     lines.push(current);
@@ -97,7 +136,11 @@ function cardLines(entity: WowheadEntity): CardLine[] {
       }
       continue;
     }
-    const wrapped = wrapLine(trimmed, 68);
+    const wrapped = wrapLine(
+      trimmed,
+      CARD_WIDTH - PADDING * 2,
+      BODY_FONT_SIZE,
+    );
     for (const [index, text] of wrapped.entries()) {
       lines.push({
         text,
@@ -146,22 +189,44 @@ export async function buildTooltipCard(
       ? (QUALITY_COLORS[entity.quality ?? -1] ?? KIND_COLORS.item)
       : KIND_COLORS[entity.kind];
   const lines = cardLines(entity);
-  const headerHeight = entity.icon ? 88 : 58;
+  const icon = await iconDataUri(entity.icon);
+  const titleX = icon ? 104 : PADDING;
+  const titleLines = wrapLine(
+    entity.name,
+    CARD_WIDTH - titleX - PADDING,
+    TITLE_FONT_SIZE,
+  );
+  const titleStartY = PADDING + 28;
+  const titleEndY =
+    titleStartY + (titleLines.length - 1) * TITLE_LINE_HEIGHT;
+  const metadataY = titleEndY + 27;
+  const headerBottom = Math.max(
+    icon ? PADDING + 66 : 0,
+    metadataY + 8,
+  );
+  const bodyStartY = headerBottom + 30;
   const bodyHeight = lines.reduce(
     (height, line) => height + LINE_HEIGHT + line.gapBefore,
     0,
   );
-  const cardHeight = Math.max(150, PADDING * 2 + headerHeight + bodyHeight + 20);
-  const icon = await iconDataUri(entity.icon);
-  const titleX = icon ? 104 : PADDING;
-  let y = PADDING + headerHeight;
+  const cardHeight = Math.max(
+    150,
+    bodyStartY + bodyHeight + PADDING,
+  );
+  let y = bodyStartY;
   const body = lines
     .map((line) => {
       y += line.gapBefore;
-      const text = `<text x="${PADDING}" y="${y}" fill="${line.color}" font-size="18">${escapeXml(line.text)}</text>`;
+      const text = `<text x="${PADDING}" y="${y}" fill="${line.color}" font-size="${BODY_FONT_SIZE}">${escapeXml(line.text)}</text>`;
       y += LINE_HEIGHT;
       return text;
     })
+    .join("");
+  const title = titleLines
+    .map(
+      (line, index) =>
+        `<text x="${titleX}" y="${titleStartY + index * TITLE_LINE_HEIGHT}" fill="${qualityColor}" font-size="${TITLE_FONT_SIZE}" font-weight="700">${escapeXml(line)}</text>`,
+    )
     .join("");
   const iconMarkup = icon
     ? `
@@ -189,9 +254,8 @@ export async function buildTooltipCard(
       <rect x="11" y="11" width="${CARD_WIDTH - 22}" height="${cardHeight - 22}"
         rx="8" fill="none" stroke="#5d4823" stroke-width="1"/>
       ${iconMarkup}
-      <text x="${titleX}" y="${PADDING + 28}" fill="${qualityColor}"
-        font-size="24" font-weight="700">${escapeXml(entity.name)}</text>
-      <text x="${titleX}" y="${PADDING + 55}" fill="#9ca3af"
+      ${title}
+      <text x="${titleX}" y="${metadataY}" fill="#9ca3af"
         font-size="15">${escapeXml(`${entity.kind.toUpperCase()} ${primaryMatch.id} | WOW FOREVER`)}</text>
       ${body}
     </svg>`;
