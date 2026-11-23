@@ -12,6 +12,16 @@ import {
 
 import { buildLfgCommand, handleLfgCommand } from "../src/lfg-command.js";
 import { LfgDirectory } from "../src/lfg-directory.js";
+import { buildGroupEmbed } from "../src/lfg-communications.js";
+
+function communications(publish: (embed: EmbedBuilder) => Promise<void>) {
+  return {
+    publish: async (group: Parameters<typeof buildGroupEmbed>[0]) => {
+      await publish(buildGroupEmbed(group, "lfg"));
+    },
+    changed: async () => {},
+  };
+}
 
 type Reply = string | {
   content?: string;
@@ -35,6 +45,7 @@ function interaction(
   const value = {
     id: options.id ?? "10",
     guildId: options.guildId === undefined ? "20" : options.guildId,
+    channelId: "40",
     user: { id: options.userId ?? "30" },
     options: {
       getSubcommand: () => action,
@@ -84,7 +95,7 @@ test("creates public groups and privately lists, joins, shows, leaves, and close
     options?: Parameters<typeof interaction>[1],
   ) => {
     const request = interaction(action, options);
-    await handleLfgCommand(request.value, directory, "lfg", publish);
+    await handleLfgCommand(request.value, directory, "lfg", communications(publish));
     assert.deepEqual(request.deferred, [{ flags: MessageFlags.Ephemeral }]);
     return request.replies;
   };
@@ -142,7 +153,7 @@ test("rejects DM, stale actions, and groups outside the current server", async (
         request.value,
         directory,
         "group",
-        async (embed) => { published.push(embed); },
+        communications(async (embed) => { published.push(embed); }),
       );
       assert.match(JSON.stringify(request.replies), expected);
     }
@@ -164,7 +175,7 @@ test("retains a saved group when its public announcement fails", async () => {
       request.value,
       directory,
       "lfg",
-      async () => { throw new Error("Missing send permission"); },
+      communications(async () => { throw new Error("Missing send permission"); }),
     );
     assert.match(JSON.stringify(request.replies.at(-1)), /Group saved/);
     assert.equal((await directory.list("20")).length, 1);
@@ -184,9 +195,9 @@ test("reports storage failure without exposing internal details", async () => {
   console.error = (...values: unknown[]) => { errors.push(values); };
   try {
     await writeFile(join(path, "lfg.json"), "{bad");
-    await handleLfgCommand(request.value, directory, "lfg", async () => {
+    await handleLfgCommand(request.value, directory, "lfg", communications(async () => {
       assert.fail("Must not publish on storage failure");
-    });
+    }));
     assert.match(JSON.stringify(request.replies), /Try again later/);
     assert.doesNotMatch(JSON.stringify(request.replies), /Could not load LFG/);
     assert.equal(errors.length, 1);

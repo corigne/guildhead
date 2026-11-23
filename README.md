@@ -27,6 +27,7 @@ and Wowhead links.
 - Confirmed guild join and rank-change announcements from Blizzard roster data
 - Guild-maintained crafter directory with find, register, and remove commands
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
+- Updated LFG announcements and leader DMs when players join or leave
 - Exact-name matching to avoid unrelated search results
 - 24-hour lookup cache to reduce Wowhead traffic
 - Docker and Docker Compose deployment
@@ -64,11 +65,12 @@ Required values:
 
 ```dotenv
 DISCORD_TOKEN=your-bot-token
-DISCORD_COMMAND_NAME=wow
-DISCORD_HELP_COMMAND_NAME=help
 DISCORD_CHANNEL_IDS=123456789012345678
-WOWHEAD_FLAVORS=forever
 ```
+
+The default commands are `/wow`, `/help`, `/craft`, and `/lfg`. The default
+Wowhead database is Forever; no Blizzard credentials are needed for tooltips,
+crafters, or LFG. Blizzard credentials enable roster monitoring only.
 
 Multiple channel IDs and databases use comma-separated values:
 
@@ -88,6 +90,10 @@ Supported database values:
 
 `DISCORD_WEBHOOK_URL` is optional. When omitted, Guildhead automatically
 creates and reuses a webhook in each configured channel.
+
+For data storage, secret files, backups, upgrades, and troubleshooting, see the
+[operations guide](docs/operations.md). Planned work and known limitations live
+in the [roadmap](docs/roadmap.md).
 
 ## Guild roster announcements
 
@@ -156,20 +162,27 @@ normal Discord channels, the command response appears directly.
 
 `/lfg create activity:Deadmines size:5` creates a group with the leader included
 in its size and posts a public announcement in the current channel. WoW-linked
-channels use the managed webhook. All command acknowledgements and subsequent
-LFG responses are private; no automatic role pings or in-game messages are sent.
+channels use the managed webhook. Command acknowledgements are private; the
+public post updates when membership changes and is marked closed or expired
+when the group ends. Expiry is checked once a minute.
 
 Use the group ID from that announcement with `/lfg join`, `/lfg show`, or
-`/lfg leave`. Announcements are snapshots, not live-updating rosters; `/lfg show`
-always returns current membership. Only the leader can close a group, and a
-leader leaving closes it. Groups expire exactly two hours after creation.
+`/lfg leave`. Leaders receive a DM when someone joins or leaves; repeated joins
+and leaving a group you did not join do not send notifications. If DMs are
+disabled or an announcement cannot be edited, a successful signup still
+stands. Use `/lfg show` to check stored membership. Only the leader can close a
+group, and a leader leaving closes it. Groups expire two hours after creation.
 One person can lead one active group per server, with at most ten active groups
 per server and 2-40 members per group. These are Discord sign-ups, not verified
 in-game characters, online status, or reserved dungeon spots.
 
-Groups survive restarts in `GUILDHEAD_DATA_DIR` (default `/data`). Closed groups
-are removed immediately; expired groups are pruned on the next successful LFG
-command. Set `DISCORD_LFG_COMMAND_NAME` to rename `/lfg` when another bot uses it.
+Groups and announcement references survive restarts in `GUILDHEAD_DATA_DIR`
+(default `/data`). Failed post edits are retried; deleted posts are not
+recreated. No automatic role pings or in-game messages are sent. Set
+`DISCORD_LFG_COMMAND_NAME` to rename `/lfg` when another bot uses it.
+
+Posts created before v1.6 remain snapshots because older releases did not save
+their message IDs. Existing groups still work through `/lfg show` and `/lfg list`.
 
 ## Run with Docker Compose
 
@@ -206,9 +219,10 @@ npm test
 ```
 
 `npm test` enforces 100% line, branch, and function coverage across source
-modules. `src/index.ts` is excluded as the Discord process composition root;
-LFG command handling and slash-command definitions are tested directly. Live
-Discord transport and process wiring are outside this unit-coverage claim.
+modules. `src/index.ts` is excluded as the Discord process composition root.
+LFG command definitions, persistence, notifications, and Discord delivery paths
+are tested with fakes. Live Discord requests and process wiring are outside
+this unit-coverage claim.
 
 ## Security
 
@@ -222,6 +236,10 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting and
 ## Contributing
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support
+
+If Guildhead is useful to your guild, you can [buy me a coffee on Ko-fi](https://ko-fi.com/michelinboi).
 
 ## License
 

@@ -7,7 +7,8 @@ import {
   type ChatInputCommandInteraction,
 } from "discord.js";
 
-import { LfgDirectory, LfgError, type LfgGroup } from "./lfg-directory.js";
+import { LfgDirectory, LfgError } from "./lfg-directory.js";
+import { buildGroupEmbed, type LfgCommunications } from "./lfg-communications.js";
 
 export function buildLfgCommand(name: string) {
   const command = new SlashCommandBuilder()
@@ -60,43 +61,16 @@ export function buildLfgCommand(name: string) {
   return command;
 }
 
-function groupEmbed(group: LfgGroup, commandName: string): EmbedBuilder {
-  return new EmbedBuilder()
-    .setTitle(`LFG: ${escapeMarkdown(group.activity)}`)
-    .setColor(0x1eff00)
-    .setDescription(group.memberIds.map((id) => `<@${id}>`).join(", "))
-    .addFields(
-      { name: "Leader", value: `<@${group.ownerId}>`, inline: true },
-      {
-        name: "Members",
-        value: `${group.memberIds.length}/${group.capacity}`,
-      },
-      {
-        name: "Group ID",
-        value: `\`${group.id}\``,
-        inline: true,
-      },
-      {
-        name: "Expires",
-        value: `<t:${Math.floor(group.expiresAt / 1000)}:R>`,
-        inline: true,
-      },
-    )
-    .setFooter({
-      text: `Snapshot only. /${commandName} join group:${group.id} | /${commandName} show for updates`,
-    });
-}
-
 type LfgInteraction = Pick<
   ChatInputCommandInteraction,
-  "id" | "guildId" | "user" | "options" | "deferReply" | "editReply"
+  "id" | "guildId" | "channelId" | "user" | "options" | "deferReply" | "editReply"
 >;
 
 export async function handleLfgCommand(
   interaction: LfgInteraction,
   directory: LfgDirectory,
   commandName: string,
-  publish: (embed: EmbedBuilder) => Promise<void>,
+  communications: Pick<LfgCommunications, "publish" | "changed">,
 ): Promise<void> {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
@@ -134,14 +108,14 @@ export async function handleLfgCommand(
         activity: interaction.options.getString("activity", true),
         capacity: interaction.options.getInteger("size") ?? 5,
       });
-      const embed = groupEmbed(group, commandName);
+      const embed = buildGroupEmbed(group, commandName);
       await interaction.editReply({
         content: "Group created. Share its ID so guildmates can join.",
         embeds: [embed],
         allowedMentions: { parse: [] },
       });
       try {
-        await publish(embed);
+        await communications.publish(group, interaction.channelId);
       } catch (error) {
         console.error("Could not announce LFG group:", error);
         await interaction.editReply({
@@ -160,13 +134,14 @@ export async function handleLfgCommand(
       interaction.user.id,
       action as "show" | "join" | "leave" | "close",
     );
+    await communications.changed(result, interaction.user.id, action);
     if (result.closed) {
       await interaction.editReply("Group closed.");
       return;
     }
     await interaction.editReply({
       content: "Current group roster:",
-      embeds: [groupEmbed(result.group, commandName)],
+      embeds: [buildGroupEmbed(result.group, commandName)],
       allowedMentions: { parse: [] },
     });
   } catch (error) {

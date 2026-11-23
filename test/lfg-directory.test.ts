@@ -113,7 +113,7 @@ test("limits ownership and guild capacity, closes when leaders leave", async () 
     assert.deepEqual(await directory.list("2", expiry), []);
     assert.deepEqual(
       JSON.parse(await readFile(join(path, "lfg.json"), "utf8")),
-      { version: 1, groups: [] },
+      { version: 1, groups: [], posts: [] },
     );
     await directory.create({ ...group, id: "51" });
     assert.equal((await directory.list("2")).length, 1);
@@ -208,6 +208,95 @@ test("validates the complete persisted LFG contract", () => {
   );
   assert.deepEqual(
     parseLfgState({ version: 1, groups: [group], extraField: true }),
-    { version: 1, groups: [group] },
+    { version: 1, groups: [group], posts: [] },
+  );
+});
+
+test("tracks announcement edits through joins, closure, expiry, and restart", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-lfg-posts-"));
+  const directory = new LfgDirectory(path);
+  const now = Date.now();
+  const announcement = { channelId: "4", messageId: "5", webhookId: "6" };
+  try {
+    const created = await directory.create(group, now);
+    await directory.attachAnnouncement(created, announcement, now);
+    await directory.attachAnnouncement(created, announcement, now);
+    assert.equal((await directory.posts(now)).length, 1);
+    await directory.update("2", "1", "4", "join", now);
+    assert.deepEqual((await directory.posts(now))[0]?.group.memberIds, ["3", "4"]);
+    await directory.update("2", "1", "3", "close", now);
+    assert.equal((await directory.posts(now))[0]?.status, "closed");
+    const restarted = new LfgDirectory(path);
+    assert.equal((await restarted.posts())[0]?.announcement.webhookId, "6");
+    await restarted.forgetPost("1");
+    assert.deepEqual(await restarted.posts(), []);
+
+    const expiring = await directory.create({ ...group, id: "10" }, now);
+    await directory.attachAnnouncement(expiring, { channelId: "4", messageId: "11" });
+    const expired = await directory.posts(expiring.expiresAt);
+    assert.equal(expired[0]?.status, "expired");
+    assert.deepEqual(await directory.list("2", expiring.expiresAt), []);
+    assert.equal((await new LfgDirectory(path).posts(expiring.expiresAt))[0]?.status, "expired");
+    await directory.forgetPost("10");
+    assert.deepEqual(await directory.posts(), []);
+  } finally {
+    await rm(path, { recursive: true });
+  }
+});
+
+test("retains final post updates if a group closes or expires while posting", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-lfg-posts-"));
+  const directory = new LfgDirectory(path);
+  const now = Date.now();
+  try {
+    const created = await directory.create(group, now);
+    await directory.update("2", "1", "3", "leave", now);
+    await directory.attachAnnouncement(created, { channelId: "4", messageId: "5" }, now);
+    assert.equal((await directory.posts(now))[0]?.status, "closed");
+    await directory.forgetPost("1");
+    const expired = await directory.create(group, now);
+    await directory.attachAnnouncement(
+      expired, { channelId: "4", messageId: "6" }, expired.expiresAt,
+    );
+    assert.equal((await directory.posts(expired.expiresAt))[0]?.status, "expired");
+  } finally {
+    await rm(path, { recursive: true });
+  }
+});
+
+test("validates post metadata and accepts old files without announcements", () => {
+  assert.deepEqual(parseLfgState({ version: 1, groups: [group] }), {
+    version: 1, groups: [group], posts: [],
+  });
+  const post = {
+    group,
+    announcement: { channelId: "4", messageId: "5", webhookId: "6" },
+    status: "open",
+  };
+  assert.throws(
+    () => parseLfgState({ version: 1, groups: [], posts: null }),
+    /Invalid LFG posts/,
+  );
+  const cases: Array<[unknown, RegExp]> = [
+    [null, /post must be an object/],
+    [{ ...post, announcement: null }, /Invalid LFG announcement/],
+    [{ ...post, announcement: { ...post.announcement, channelId: "bad" } }, /channel ID/],
+    [{ ...post, announcement: { ...post.announcement, messageId: "bad" } }, /message ID/],
+    [{ ...post, announcement: { ...post.announcement, webhookId: "bad" } }, /webhook ID/],
+    [{ ...post, status: "invalid" }, /post status/],
+  ];
+  for (const [invalid, error] of cases) {
+    assert.throws(
+      () => parseLfgState({ version: 1, groups: [], posts: [invalid] }),
+      error,
+    );
+  }
+  assert.throws(
+    () => parseLfgState({ version: 1, groups: [], posts: [post, post] }),
+    /Duplicate LFG post/,
+  );
+  assert.equal(
+    parseLfgState({ version: 1, groups: [], posts: [post] }).posts[0]?.announcement.webhookId,
+    "6",
   );
 });

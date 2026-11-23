@@ -30,6 +30,8 @@ import {
 } from "./crafter-directory.js";
 import { LfgDirectory } from "./lfg-directory.js";
 import { buildLfgCommand, handleLfgCommand } from "./lfg-command.js";
+import { LfgCommunications } from "./lfg-communications.js";
+import { DiscordLfgTransport } from "./lfg-discord.js";
 
 const config = loadConfig();
 const configuredWebhook = config.webhookUrl
@@ -46,6 +48,15 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
+const lfgCommunications = new LfgCommunications(
+  lfgDirectory,
+  new DiscordLfgTransport(
+    client,
+    config.channelIds,
+    webhookForChannel,
+    config.lfgCommandName,
+  ),
+);
 const wowCommand = new SlashCommandBuilder()
   .setName(config.commandName)
   .setDescription("Search Wowhead for items, quests, spells, NPCs, and achievements")
@@ -199,6 +210,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     }
   }
 
+  lfgCommunications.start();
+
   if (config.guildRoster) {
     new GuildRosterMonitor(readyClient, config.guildRoster).start();
     console.log(
@@ -305,20 +318,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction,
       lfgDirectory,
       config.lfgCommandName,
-      async (embed) => {
-        const response = {
-          embeds: [embed],
-          allowedMentions: { parse: [] as never[] },
-        };
-        if (config.channelIds.has(interaction.channelId)) {
-          if (interaction.channel?.type !== ChannelType.GuildText) {
-            throw new Error("LFG announcements need a guild text channel");
-          }
-          await (await webhookForChannel(interaction.channel)).send(response);
-        } else {
-          await interaction.followUp(response);
-        }
-      },
+      lfgCommunications,
     );
     return;
   }

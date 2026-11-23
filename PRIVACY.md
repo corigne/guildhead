@@ -27,13 +27,20 @@ Discord message IDs, character names and error details, but not bot tokens or
 webhook URLs.
 
 LFG state stores the Discord server ID, group ID, leader and member user IDs,
-activity name, capacity, and expiry time in the operator's data directory.
-Groups are visible only through commands in their originating server. A group
-creation announcement is public in the invoking channel; other LFG responses
-are private. Leaving removes that user from the stored group; closing removes
-the group. Groups expire after two hours and are pruned from storage on the
-next successful LFG command. Previously posted Discord announcements remain
-subject to the server's message-retention policy.
+activity name, capacity, expiry time, and announcement channel/message/webhook
+IDs in the operator's data directory. No webhook tokens are stored in that
+state. Groups are visible through commands in their originating server.
+Creation announcements and roster edits are public in the invoking channel;
+command acknowledgements are private. Leaders receive a DM identifying users
+who join or leave their group. Failed DMs are not queued or replayed.
+
+Leaving removes a user from the current roster; closing removes a group from
+active listings. Groups expire after two hours. Guildhead checks for expiry
+once a minute and keeps a final roster snapshot until its closed/expired
+announcement has been updated or the message is found to have been deleted.
+Failed edits retain that snapshot for retry, including across restarts.
+Discord announcements and leader DMs remain subject to Discord and server
+message-retention policies.
 
 ## Third parties
 
