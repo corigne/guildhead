@@ -67,6 +67,7 @@ test("builds a concise voluntary command guide with full configured commands and
   assert.match(text, /<#1>/);
   assert.match(text, /not here to police/);
   assert.match(text, /https:\/\/github.com\/corigne\/guildhead/);
+  assert.match(JSON.stringify(buildCommandPost({ ...config, lfgChannelId: "789" }).toJSON()), /browse recent posts in <#789>/);
   for (const field of embed.fields!) assert.ok(field.value.length <= 1024);
   const { commandChannelId: _channel, ...withoutChannel } = config;
   assert.match(buildCommandPost(withoutChannel).toJSON().description!, /wherever this server permits/);

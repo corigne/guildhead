@@ -250,10 +250,20 @@ Set `DISCORD_ROSTER_COMMAND_NAME` to rename the command.
 ### Lightweight group finding
 
 `/lfg create activity:Deadmines size:5` creates a group with the leader included
-in its size and posts a public announcement in the current channel. WoW-linked
+in its size and posts a public announcement in `DISCORD_LFG_CHANNEL_ID` when
+configured, or the invoking channel otherwise. Set this to an existing LFG
+channel so members can browse recent groups. Commands still work in other
+channels; the private acknowledgement points to the configured destination.
+The destination must be sendable and in the same server as the group. WoW-linked
 channels use the managed webhook. Command acknowledgements are private; the
 public post updates when membership changes and is marked closed or expired
 when the group ends. Expiry is checked once a minute.
+
+Existing announcements continue updating in their original channels after a
+configuration change; they are not duplicated or moved. If the configured
+destination is unavailable, the group is still saved and the private response
+reports the announcement failure. Guildhead does not post in another channel
+as a fallback.
 
 Use the group ID from that announcement with `/lfg join`, `/lfg show`, or
 `/lfg leave`. Leaders receive a DM when someone joins or leaves; repeated joins

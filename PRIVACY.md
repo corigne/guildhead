@@ -89,7 +89,9 @@ LFG state stores the Discord server ID, group ID, leader and member user IDs,
 activity name, capacity, expiry time, and announcement channel/message/webhook
 IDs in the operator's data directory. No webhook tokens are stored in that
 state. Groups are visible through commands in their originating server.
-Creation announcements and roster edits are public in the invoking channel;
+Creation announcements are public in the configured LFG channel, or the
+invoking channel when none is configured. Roster edits update the saved
+announcement in its original channel, including after configuration changes;
 command acknowledgements are private. Leaders receive a DM identifying users
 who join or leave their group. Failed DMs are not queued or replayed.
 

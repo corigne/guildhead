@@ -16,6 +16,7 @@ export interface Config {
   helpCommandName: string;
   craftCommandName: string;
   lfgCommandName: string;
+  lfgChannelId?: string;
   rosterCommandName: string;
   characterCommandName: string;
   characterRedirectUri?: string;
@@ -176,6 +177,10 @@ function parseGuildRosterConfig(dataDir: string): GuildRosterConfig | undefined 
 export function loadConfig(): Config {
   const channelIds = new Set(parseList(required("DISCORD_CHANNEL_IDS")));
   const commandChannelId = process.env.DISCORD_COMMAND_CHANNEL_ID?.trim() || undefined;
+  const lfgChannelId = process.env.DISCORD_LFG_CHANNEL_ID?.trim() || undefined;
+  if (lfgChannelId && !/^\d{1,20}$/.test(lfgChannelId)) {
+    throw new Error("DISCORD_LFG_CHANNEL_ID must contain 1-20 digits");
+  }
   const commandPostChannelIds = new Set(parseList(process.env.DISCORD_COMMAND_POST_CHANNEL_IDS || ""));
   if (commandChannelId) commandPostChannelIds.add(commandChannelId);
   if ([...commandPostChannelIds].some(id => !/^\d{1,20}$/.test(id))) {
@@ -261,6 +266,7 @@ export function loadConfig(): Config {
     helpCommandName,
     craftCommandName,
     lfgCommandName,
+    ...(lfgChannelId ? { lfgChannelId } : {}),
     rosterCommandName,
     characterCommandName,
     ...(characterRedirectUri ? { characterRedirectUri } : {}),

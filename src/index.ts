@@ -304,7 +304,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           value:
             "`create activity size?`: start a two-hour group\n" +
             "`list`: active groups in this server\n" +
-            "`show|join|leave|close group`: manage a group by ID",
+            "`show|join|leave|close group`: manage a group by ID" +
+            (config.lfgChannelId ? `\nNew group announcements: <#${config.lfgChannelId}>` : ""),
         },
         {
           name: `/${config.rosterCommandName}`,
@@ -358,6 +359,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       lfgDirectory,
       config.lfgCommandName,
       lfgCommunications,
+      config.lfgChannelId,
     );
     return;
   }

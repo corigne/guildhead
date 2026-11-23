@@ -12,12 +12,13 @@ import {
 
 import { buildLfgCommand, handleLfgCommand } from "../src/lfg-command.js";
 import { LfgDirectory } from "../src/lfg-directory.js";
-import { buildGroupEmbed } from "../src/lfg-communications.js";
+import { buildGroupEmbed, LfgCommunications } from "../src/lfg-communications.js";
+import { DiscordLfgTransport } from "../src/lfg-discord.js";
 
-function communications(publish: (embed: EmbedBuilder) => Promise<void>) {
+function communications(publish: (embed: EmbedBuilder, channelId: string) => Promise<void>) {
   return {
-    publish: async (group: Parameters<typeof buildGroupEmbed>[0]) => {
-      await publish(buildGroupEmbed(group, "lfg"));
+    publish: async (group: Parameters<typeof buildGroupEmbed>[0], channelId: string) => {
+      await publish(buildGroupEmbed(group, "lfg"), channelId);
     },
     changed: async () => {},
   };
@@ -86,7 +87,8 @@ test("creates public groups and privately lists, joins, shows, leaves, and close
   const path = await mkdtemp(join(tmpdir(), "guildhead-lfg-command-"));
   const directory = new LfgDirectory(path);
   const published: EmbedBuilder[] = [];
-  const publish = async (embed: EmbedBuilder) => {
+  const publish = async (embed: EmbedBuilder, channelId: string) => {
+    assert.equal(channelId, "40");
     embed.toJSON();
     published.push(embed);
   };
@@ -138,6 +140,45 @@ test("creates public groups and privately lists, joins, shows, leaves, and close
   }
 });
 
+test("routes new posts to a configured same-server LFG channel and keeps existing announcements there after configuration changes", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-lfg-channel-"));
+  const directory = new LfgDirectory(path);
+  const fetched: string[] = [];
+  const edits: string[] = [];
+  let published = 0;
+  const client = {
+    channels: { fetch: async (id: string) => {
+      fetched.push(id);
+      assert.equal(id, "60");
+      return {
+        guildId: "20", isSendable: () => true,
+        send: async () => { published += 1; return { id: "50" }; },
+        messages: { edit: async (messageId: string) => { edits.push(messageId); } },
+      };
+    } },
+    users: { fetch: async () => ({ send: async () => {} }) },
+  } as unknown as ConstructorParameters<typeof DiscordLfgTransport>[0];
+  const transport = new DiscordLfgTransport(client, new Set(), async () => { throw new Error("Not a linked channel"); }, "lfg");
+  const comms = new LfgCommunications(directory, transport);
+  try {
+    const request = interaction("create");
+    await handleLfgCommand(request.value, directory, "lfg", comms, "60");
+    assert.deepEqual(request.deferred, [{ flags: MessageFlags.Ephemeral }]);
+    assert.match(JSON.stringify(request.replies), /<#60>/);
+    assert.equal((await directory.posts())[0]?.announcement.channelId, "60");
+    for (const [action, options] of [
+      ["join", { userId: "31" }], ["close", {}],
+    ] as const) {
+      const update = interaction(action, options);
+      await handleLfgCommand(update.value, directory, "lfg", comms, "99");
+    }
+    assert.equal(published, 1);
+    assert.ok(edits.length >= 3);
+    assert.ok(fetched.every(id => id === "60"));
+    assert.equal((await directory.list("20")).length, 0);
+  } finally { await rm(path, { recursive: true }); }
+});
+
 test("rejects DM, stale actions, and groups outside the current server", async () => {
   const path = await mkdtemp(join(tmpdir(), "guildhead-lfg-command-"));
   const directory = new LfgDirectory(path);
@@ -175,7 +216,11 @@ test("retains a saved group when its public announcement fails", async () => {
       request.value,
       directory,
       "lfg",
-      communications(async () => { throw new Error("Missing send permission"); }),
+      communications(async (_embed, channelId) => {
+        assert.equal(channelId, "60");
+        throw new Error("Missing send permission");
+      }),
+      "60",
     );
     assert.match(JSON.stringify(request.replies.at(-1)), /Group saved/);
     assert.equal((await directory.list("20")).length, 1);

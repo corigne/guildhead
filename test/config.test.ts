@@ -10,6 +10,23 @@ import {
   readSecret,
 } from "../src/config.js";
 
+test("validates an optional dedicated LFG output channel independently of command channels", () => {
+  const previous = { ...process.env };
+  try {
+    Object.assign(process.env, { DISCORD_TOKEN: "test", DISCORD_CHANNEL_IDS: "123" });
+    delete process.env.DISCORD_LFG_CHANNEL_ID;
+    assert.equal(loadConfig().lfgChannelId, undefined);
+    process.env.DISCORD_LFG_CHANNEL_ID = " 456 ";
+    assert.equal(loadConfig().lfgChannelId, "456");
+    process.env.DISCORD_LFG_CHANNEL_ID = " ";
+    assert.equal(loadConfig().lfgChannelId, undefined);
+    for (const id of ["bad", "123,456", "1".repeat(21)]) {
+      process.env.DISCORD_LFG_CHANNEL_ID = id;
+      assert.throws(() => loadConfig(), /DISCORD_LFG_CHANNEL_ID/);
+    }
+  } finally { process.env = previous; }
+});
+
 test("configures a default commands channel and extra pinned guides without restricting slash commands", () => {
   const previous = { ...process.env };
   try {

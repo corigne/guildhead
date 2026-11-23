@@ -16,24 +16,27 @@ not a release-date promise.
 - Persistent, server-scoped LFG groups with two-hour expiry.
 - Updated LFG announcements and join/leave notifications to group leaders.
   Delivery failures do not discard signups; failed post edits retry after
-  restarts.
+  restarts. An optional dedicated LFG channel collects new announcements
+  regardless of where a command was invoked; existing posts keep updating in
+  their original channels.
 - Private roster lookup by name, class, level, and numeric rank, using saved
   snapshots with stale/unknown-age labels.
 - Opt-in Battle.net character ownership linking with automatic saving after
   authorization, private access/retention disclosures, and an explicit refresh
-  command. Real-player consent is still needed to validate Forever's
-  user-token response on this deployment.
+  command. A player has confirmed login and main selection on this deployment.
 - Private main-character selection, API-backed profession skills, and optional
   main-class/primary-profession roles. Secondary skills stay searchable without
   assigning roles. Skills refresh about every six hours; ownership
   still requires explicit Battle.net authorization. Existing class roles are
   reused, and unrelated Carl-bot preference roles remain untouched.
+- Customizable welcome DMs and persistent pinned command guides.
 
 ## Next
 
-1. Validate character linking with a consenting player on the deployed
-   callback. Public character and profession endpoints return 200; app tokens
-   correctly receive 403 from the account endpoint.
+1. Complete remaining manual checks such as a welcome on a genuine new member
+   join, LFG leader DMs/expiry, and refresh/unlink edge cases. A player has
+   confirmed help, tooltips/search, roster, character setup, crafters, pins,
+   and LFG operation.
 2. Expand known-recipe validation before adding recipe lookup. The first public
    sample is documented below. Profession skills are synced; free-form recipe
    notes remain self-reported.

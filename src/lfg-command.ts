@@ -71,6 +71,7 @@ export async function handleLfgCommand(
   directory: LfgDirectory,
   commandName: string,
   communications: Pick<LfgCommunications, "publish" | "changed">,
+  announcementChannelId?: string,
 ): Promise<void> {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
@@ -110,12 +111,12 @@ export async function handleLfgCommand(
       });
       const embed = buildGroupEmbed(group, commandName);
       await interaction.editReply({
-        content: "Group created. Share its ID so guildmates can join.",
+        content: `Group created. ${announcementChannelId ? `Public announcement channel: <#${announcementChannelId}>. ` : ""}Share its ID so guildmates can join.`,
         embeds: [embed],
         allowedMentions: { parse: [] },
       });
       try {
-        await communications.publish(group, interaction.channelId);
+        await communications.publish(group, announcementChannelId ?? interaction.channelId);
       } catch (error) {
         console.error("Could not announce LFG group:", error);
         await interaction.editReply({

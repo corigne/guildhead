@@ -10,7 +10,7 @@ import type { Config } from "./config.js";
 type PostConfig = Pick<Config,
   "dataDir" | "commandChannelId" | "commandPostChannelIds" | "channelIds" |
   "helpCommandName" | "commandName" | "craftCommandName" | "lfgCommandName" |
-  "rosterCommandName" | "characterCommandName"
+  "lfgChannelId" | "rosterCommandName" | "characterCommandName"
 >;
 interface CommandPost { messageId: string; webhookId?: string }
 interface CommandPostState { version: 1; posts: Record<string, CommandPost> }
@@ -43,7 +43,7 @@ export function buildCommandPost(config: PostConfig): EmbedBuilder {
       { name: "No linking needed", value:
         `\`/${config.commandName} query:Hearthstone\` — look up WoW tooltips\n` +
         `\`/${config.craftCommandName} find profession:Blacksmithing\` — find crafters; manual registration is available\n` +
-        `\`/${config.lfgCommandName} list\` — find groups\n` +
+        `\`/${config.lfgCommandName} list\` — find groups${config.lfgChannelId ? `; browse recent posts in <#${config.lfgChannelId}>` : ""}\n` +
         `\`/${config.rosterCommandName}\` — browse the saved guild roster when configured` },
       { name: "Entirely optional character setup", value:
         `\`/${config.characterCommandName} link\` explains access before Battle.net sign-in and saves matching guild characters automatically.\n` +

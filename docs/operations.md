@@ -19,6 +19,7 @@ Optional settings:
 | `DISCORD_HELP_COMMAND_NAME` | `help` | Private command help |
 | `DISCORD_CRAFT_COMMAND_NAME` | `craft` | Crafter directory |
 | `DISCORD_LFG_COMMAND_NAME` | `lfg` | Group finding |
+| `DISCORD_LFG_CHANNEL_ID` | unset | Public announcements for new LFG groups; defaults to invoking channel |
 | `DISCORD_ROSTER_COMMAND_NAME` | `roster` | Private saved-roster lookup |
 | `DISCORD_CHARACTER_COMMAND_NAME` | `character` | Private character linking |
 | `DISCORD_COMMAND_CHANNEL_ID` | unset | Preferred commands channel; automatically receives a pinned guide |
@@ -50,6 +51,16 @@ Changes need two consecutive observations. These are delayed Blizzard
 snapshots, not live login/logout events.
 
 ## Commands channel and pinned guides
+
+`DISCORD_LFG_CHANNEL_ID` can independently route new public group announcements
+to an existing LFG channel. It must be in the group's server and allow sending
+messages/embeds (and Manage Webhooks if WoW-linked). Private command replies
+remain in the invoking channel. With no setting, announcements retain the
+original invoking-channel behavior. Existing posts keep their saved destination;
+changing the setting does not move or duplicate them. An invalid or inaccessible
+destination reports a failed announcement privately while retaining the group;
+it never silently posts in a different channel. Help and pinned guides link to
+the configured LFG channel so members can browse recent posts.
 
 Set `DISCORD_COMMAND_CHANNEL_ID` to an existing bot-commands channel. Guildhead
 points `/help`, its pinned guides, and the default welcome there. This is
@@ -189,7 +200,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.11.1`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.12.0`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
