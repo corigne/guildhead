@@ -21,6 +21,7 @@ test("renders default onboarding with configured commands and privacy/source gui
   assert.match(message, /not a progression or role-enforcement tool/);
   assert.match(message, /https:\/\/github.com\/corigne\/guildhead/);
   assert.doesNotMatch(message, /\.michelin/);
+  assert.match(loadWelcomeMessage({ ...config, commandChannelId: "123" }), /<#123>/);
 });
 
 test("loads a custom message, preserves literals, and rejects invalid templates", () => {

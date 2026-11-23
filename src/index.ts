@@ -38,6 +38,7 @@ import { CharacterSync } from "./character-sync.js";
 import { DiscordCharacterRoles } from "./character-roles.js";
 import { BlizzardClient } from "./blizzard.js";
 import { loadWelcomeMessage, welcomeMember } from "./welcome.js";
+import { CommandPosts } from "./command-posts.js";
 
 const config = loadConfig();
 const welcomeMessage = loadWelcomeMessage(config);
@@ -180,6 +181,10 @@ client.once(Events.ClientReady, async (readyClient) => {
   }
 
   lfgCommunications.start();
+  if (config.commandPostChannelIds.size > 0) {
+    new CommandPosts(readyClient, config, webhookForChannel).start();
+    console.log("Pinned Guildhead command guides enabled");
+  }
   console.log(`Member welcome DMs ${config.welcomeEnabled ? "enabled" : "disabled"}`);
 
   if (config.guildRoster) {
@@ -326,6 +331,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         },
       )
       .setFooter({ text: "Guildhead | Wowhead tooltips for guild chat" });
+    if (config.commandChannelId) help.addFields({
+      name: "Bot commands channel",
+      value: `Use <#${config.commandChannelId}> for commands to keep chat clear. Commands remain available elsewhere where permitted.`,
+    });
     await interaction.reply({
       embeds: [help],
       flags: MessageFlags.Ephemeral,

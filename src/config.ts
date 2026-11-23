@@ -22,6 +22,8 @@ export interface Config {
   roleSyncEnabled: boolean;
   welcomeEnabled: boolean;
   welcomeMessageFile?: string;
+  commandChannelId?: string;
+  commandPostChannelIds: ReadonlySet<string>;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
   dataDir: string;
@@ -173,6 +175,12 @@ function parseGuildRosterConfig(dataDir: string): GuildRosterConfig | undefined 
 
 export function loadConfig(): Config {
   const channelIds = new Set(parseList(required("DISCORD_CHANNEL_IDS")));
+  const commandChannelId = process.env.DISCORD_COMMAND_CHANNEL_ID?.trim() || undefined;
+  const commandPostChannelIds = new Set(parseList(process.env.DISCORD_COMMAND_POST_CHANNEL_IDS || ""));
+  if (commandChannelId) commandPostChannelIds.add(commandChannelId);
+  if ([...commandPostChannelIds].some(id => !/^\d{1,20}$/.test(id))) {
+    throw new Error("Discord command channel IDs must contain 1-20 digits");
+  }
   const commandName = parseCommandName(process.env.DISCORD_COMMAND_NAME);
   const helpCommandName = parseCommandName(
     process.env.DISCORD_HELP_COMMAND_NAME,
@@ -260,6 +268,8 @@ export function loadConfig(): Config {
     welcomeEnabled: welcome === "true",
     ...(welcomeMessageFile ? { welcomeMessageFile } : {}),
     channelIds,
+    ...(commandChannelId ? { commandChannelId } : {}),
+    commandPostChannelIds,
     flavors,
     dataDir,
     ...(guildRoster ? { guildRoster } : {}),

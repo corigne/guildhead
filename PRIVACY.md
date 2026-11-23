@@ -41,6 +41,11 @@ backfilled after restart. Sent welcomes remain subject to Discord retention.
 The default message explains voluntary linking and points to the source code;
 operators can customize it for their server.
 
+Optional pinned command guides store only channel, message, and webhook IDs
+in a separate reference file; no webhook tokens or member data are stored for
+this feature. Configured guides are refreshed in place and may be recreated
+if deleted. Disabling the feature leaves existing Discord posts untouched.
+
 Character linking is opt-in. The player authorizes `wow.profile` at Battle.net.
 An access token is used in memory to retrieve owned character IDs; it is not
 persisted. Only IDs and names matching the saved guild roster, region, Discord

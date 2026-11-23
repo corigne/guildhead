@@ -10,6 +10,27 @@ import {
   readSecret,
 } from "../src/config.js";
 
+test("configures a default commands channel and extra pinned guides without restricting slash commands", () => {
+  const previous = { ...process.env };
+  try {
+    Object.assign(process.env, { DISCORD_TOKEN: "test", DISCORD_CHANNEL_IDS: "123" });
+    delete process.env.DISCORD_COMMAND_CHANNEL_ID;
+    delete process.env.DISCORD_COMMAND_POST_CHANNEL_IDS;
+    assert.equal(loadConfig().commandChannelId, undefined);
+    assert.equal(loadConfig().commandPostChannelIds.size, 0);
+    process.env.DISCORD_COMMAND_CHANNEL_ID = " 456 ";
+    process.env.DISCORD_COMMAND_POST_CHANNEL_IDS = "456,789,789";
+    assert.equal(loadConfig().commandChannelId, "456");
+    assert.deepEqual([...loadConfig().commandPostChannelIds], ["456", "789"]);
+    assert.deepEqual([...loadConfig().channelIds], ["123"]);
+    process.env.DISCORD_COMMAND_POST_CHANNEL_IDS = "bad";
+    assert.throws(() => loadConfig(), /command channel IDs/);
+    process.env.DISCORD_COMMAND_POST_CHANNEL_IDS = "";
+    process.env.DISCORD_COMMAND_CHANNEL_ID = "bad";
+    assert.throws(() => loadConfig(), /command channel IDs/);
+  } finally { process.env = previous; }
+});
+
 test("welcome DMs default off and require an explicit boolean", () => {
   const previous = { ...process.env };
   try {

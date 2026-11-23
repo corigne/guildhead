@@ -31,6 +31,7 @@ and Wowhead links.
 - Opt-in Battle.net character ownership checks with automatic linking after authorization
 - Main-character selection, API-backed profession skills, and optional class/profession roles
 - Optional, customizable welcome DMs explaining commands, voluntary linking, privacy, and source code
+- Preferred bot-commands channel with persistent pinned command guides
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Updated LFG announcements and leader DMs when players join or leave
 - Exact-name matching to avoid unrelated search results
@@ -85,6 +86,12 @@ Optional welcome DMs require **Server Members Intent** and
 using `GUILD_WELCOME_MESSAGE_FILE`; see the
 [welcome setup](docs/operations.md#optional-welcome-dms). No linking is required
 to use tooltips, manual crafter listings, group finding, or roster lookup.
+
+Set `DISCORD_COMMAND_CHANNEL_ID` to an existing bot-commands channel for
+preferred command guidance and a pinned introduction. Add more pinned-guide
+channels with `DISCORD_COMMAND_POST_CHANNEL_IDS`. These pins update in place
+and do not restrict commands elsewhere; see
+[command guides](docs/operations.md#commands-channel-and-pinned-guides).
 
 Multiple channel IDs and databases use comma-separated values:
 

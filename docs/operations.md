@@ -21,6 +21,8 @@ Optional settings:
 | `DISCORD_LFG_COMMAND_NAME` | `lfg` | Group finding |
 | `DISCORD_ROSTER_COMMAND_NAME` | `roster` | Private saved-roster lookup |
 | `DISCORD_CHARACTER_COMMAND_NAME` | `character` | Private character linking |
+| `DISCORD_COMMAND_CHANNEL_ID` | unset | Preferred commands channel; automatically receives a pinned guide |
+| `DISCORD_COMMAND_POST_CHANNEL_IDS` | unset | Additional comma-separated channels for pinned Guildhead guides |
 | `GUILD_ROLE_SYNC_ENABLED` | `false` | Authoritative main-class/profession roles; needs Server Members Intent and Manage Roles |
 | `GUILD_WELCOME_ENABLED` | `false` | DM new human members in servers containing configured tooltip channels; needs Server Members Intent |
 | `GUILD_WELCOME_MESSAGE_FILE` | unset | UTF-8 welcome template; omitted uses the built-in neutral introduction |
@@ -46,6 +48,32 @@ need a local Compose override. Never commit credentials or post them in issues.
 The first successful roster poll establishes a baseline without announcements.
 Changes need two consecutive observations. These are delayed Blizzard
 snapshots, not live login/logout events.
+
+## Commands channel and pinned guides
+
+Set `DISCORD_COMMAND_CHANNEL_ID` to an existing bot-commands channel. Guildhead
+points `/help`, its pinned guides, and the default welcome there. This is
+guidance, not a command restriction: slash commands still work elsewhere where
+server permissions allow them. No channels are created or renamed.
+
+The preferred channel automatically receives a pinned Guildhead embed. Add
+other existing channels with `DISCORD_COMMAND_POST_CHANNEL_IDS`. Guides contain
+full commands, features available without linking, optional linking/main
+selection, account-access limits, and source/privacy links. They are pinned
+posts, not repeated bottom-of-chat reposts.
+
+Grant View Channel, Read Message History, Send Messages, Embed Links, and
+Pin Messages in these channels. WoW-linked channels also need Manage Webhooks;
+Guildhead reuses its webhook there. The server may show a pin system message.
+No members are mentioned or notified by the guide itself.
+
+Message IDs are stored in `command-posts.json`. Restarting or upgrading edits
+the tracked guides instead of posting duplicates. A ten-minute check restores
+removed pins or deleted guides. Other pins/messages are untouched. Permission
+or network failures keep the existing references for retry. A change between
+webhook and ordinary-bot output fails for operator review rather than silently
+abandoning the old guide. Disabling configuration leaves existing posts in
+Discord; it does not delete or unpin them.
 
 ## Optional welcome DMs
 
@@ -75,7 +103,8 @@ services:
 
 Create `welcome-config/welcome.txt` before starting. Templates support `{help}`,
 `{wow}`, `{craft}`, `{lfg}`, `{roster}`, and `{character}` for configured slash
-command names, plus `{source}` for the GitHub repository. For example,
+command names, `{commandChannel}` for the preferred channel (or a neutral
+fallback), plus `{source}` for the GitHub repository. For example,
 `{character} link` renders the full linking command. Other braces remain literal.
 Keep rendered text between 1 and 2000 characters; invalid or unreadable files
 stop startup. Mentions and automatic link previews are disabled.
@@ -97,6 +126,7 @@ Compose mounts a named volume at `/data`. It contains:
 | `crafters.json` | Self-registered crafter listings |
 | `lfg.json` | LFG groups and announcement tracking |
 | `character-links.json` | Dated ownership, selected mains, public class/profession snapshots; no access tokens |
+| `command-posts.json` | Channel/message/webhook IDs of Guildhead's pinned command guides; no webhook tokens |
 
 Keep the volume when replacing a container. `docker compose down -v` removes
 it; do not use that command for routine upgrades.
@@ -133,6 +163,24 @@ before retiring the old container or its volume.
 
 ## Upgrades and rollback
 
+### Low-impact local checks
+
+On Linux with a running user systemd manager, use `npm run test:low-impact`
+while gaming or doing other interactive work. This serializes Guildhead checks
+through a user lock, limits the whole check process tree to half of one CPU,
+sets a 1 GiB memory soft limit and 2 GiB hard limit with no swap, and lowers
+CPU/I/O scheduling priority. Compiler, image, and worker concurrency is also
+limited. Missing resource-control tools fail rather than falling back to an
+unrestricted run. To run another local check under the same limits, use
+`sh scripts/low-impact.sh npm run build`.
+
+These controls apply to child processes, not work submitted to an existing
+Docker daemon. Do not assume wrapping `docker build` caps its workers.
+Prefer CI-published images for deployment instead of building on the gaming
+machine. Never run multiple heavy checks or headless browsers concurrently
+with a game. These limits reduce contention; they do not prove or prevent
+every possible compositor/GPU failure.
+
 For source deployments, note the current commit, take a backup, then:
 
 ```sh
@@ -141,7 +189,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.10.1`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.11.0`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
@@ -175,6 +223,11 @@ now include gathering, Fishing, and First Aid; older releases reject crafter
 files containing those names. Use a pre-upgrade backup when downgrading.
 Discord role definitions and member assignments are not part of the data
 archive: disable role sync first and arrange any role rollback separately.
+
+v1.11 adds a separate command-post reference file. Older releases ignore it;
+the pinned Discord messages remain. Restore references with the volume when
+migrating the same bot so it reuses its existing guides. Host-local channel
+configuration and welcome templates still require separate backups.
 
 Character linking adds a separate file and leaves existing roster, LFG, and
 crafter data alone. See the [linking guide](character-linking.md) for callback

@@ -4,7 +4,7 @@ import type { Config } from "./config.js";
 
 export const defaultWelcomeMessage = `Welcome! I'm **Guildhead**, a World of Warcraft quality-of-life bot.
 
-**No linking needed:** use {help}, {wow}, {craft}, {lfg}, and {roster} for command help, tooltips, crafters, groups, and the saved guild roster. You can register crafters manually.
+**No linking needed:** use {help}, {wow}, {craft}, {lfg}, and {roster} for command help, tooltips, crafters, groups, and the saved guild roster. You can register crafters manually. Use {commandChannel} for commands.
 
 **Entirely optional:** {character} link verifies your guild characters through Battle.net. Selecting a main with {character} main enables synced crafter listings and, if configured, class/profession roles. Linking is never required to participate; Guildhead is not a progression or role-enforcement tool.
 
@@ -14,7 +14,7 @@ Sign in only at Battle.net. Guildhead never receives your password or authentica
 
 type WelcomeConfig = Pick<Config,
   "welcomeMessageFile" | "helpCommandName" | "commandName" | "craftCommandName" |
-  "lfgCommandName" | "rosterCommandName" | "characterCommandName"
+  "lfgCommandName" | "rosterCommandName" | "characterCommandName" | "commandChannelId"
 >;
 
 export function loadWelcomeMessage(config: WelcomeConfig): string {
@@ -29,9 +29,10 @@ export function loadWelcomeMessage(config: WelcomeConfig): string {
     roster: `/${config.rosterCommandName}`,
     character: `/${config.characterCommandName}`,
     source: "https://github.com/corigne/guildhead",
+    commandChannel: config.commandChannelId ? `<#${config.commandChannelId}>` : "any channel where Guildhead commands are available",
   };
   const message = template.replace(
-    /\{(help|wow|craft|lfg|roster|character|source)\}/g,
+    /\{(help|wow|craft|lfg|roster|character|source|commandChannel)\}/g,
     (_match, key: string) => values[key]!,
   ).trim();
   if (!message || message.length > 2000) {
