@@ -10,7 +10,7 @@ import {
   type EmbedBuilder,
 } from "discord.js";
 
-import { buildLfgCommand, handleLfgCommand } from "../src/lfg-command.js";
+import { buildLfgCommand, handleLfgAutocomplete, handleLfgCommand } from "../src/lfg-command.js";
 import { LfgDirectory } from "../src/lfg-directory.js";
 import { buildGroupEmbed, LfgCommunications } from "../src/lfg-communications.js";
 import { DiscordLfgTransport } from "../src/lfg-discord.js";
@@ -81,6 +81,81 @@ test("advertises guild-only LFG subcommands and bounded arguments", () => {
   }
   assert.equal(size.min_value, 2);
   assert.equal(size.max_value, 40);
+  for (const action of ["show", "join", "leave", "close"]) {
+    const subcommand: NonNullable<typeof command.options>[number] | undefined =
+      command.options!.find(option => option.name === action);
+    assert.equal(subcommand?.type, ApplicationCommandOptionType.Subcommand);
+    if (subcommand?.type !== ApplicationCommandOptionType.Subcommand) assert.fail("Expected group subcommand");
+    const argument = subcommand.options?.[0];
+    if (argument?.type !== ApplicationCommandOptionType.String) assert.fail("Expected string group ID");
+    assert.equal(argument.autocomplete, action === "close");
+  }
+});
+
+function autocomplete(options: { guildId?: string | null; userId?: string; action?: string; focusedName?: string; query?: string } = {}) {
+  const replies: { name: string; value: string }[][] = [];
+  return {
+    replies,
+    value: {
+      guildId: options.guildId === undefined ? "20" : options.guildId,
+      user: { id: options.userId ?? "30" },
+      options: {
+        getSubcommand: () => options.action ?? "close",
+        getFocused: () => ({ name: options.focusedName ?? "group", value: options.query ?? "" }),
+      },
+      respond: async (choices: { name: string; value: string }[]) => { replies.push(choices); },
+    } as unknown as Parameters<typeof handleLfgAutocomplete>[0],
+  };
+}
+
+test("suggests only owned open groups in this server, filters activity/ID, and handles stale or empty suggestions", async () => {
+  const path = await mkdtemp(join(tmpdir(), "guildhead-lfg-autocomplete-"));
+  const directory = new LfgDirectory(path);
+  const run = async (options?: Parameters<typeof autocomplete>[0]) => {
+    const request = autocomplete(options);
+    await handleLfgAutocomplete(request.value, directory);
+    assert.equal(request.replies.length, 1);
+    return request.replies[0];
+  };
+  try {
+    await directory.create({ id: "10", guildId: "20", ownerId: "30", activity: "Deadmines", capacity: 5 });
+    await directory.create({ id: "11", guildId: "20", ownerId: "31", activity: "Other leader", capacity: 5 });
+    await directory.create({ id: "12", guildId: "21", ownerId: "30", activity: "Other server", capacity: 5 });
+    await directory.create({ id: "13", guildId: "20", ownerId: "32", activity: "Expired", capacity: 5 }, Date.now() - 3 * 60 * 60_000);
+    const expected = [{ name: "Deadmines (10)", value: "10" }];
+    assert.deepEqual(await run(), expected);
+    assert.deepEqual(await run({ query: "  DEAD  " }), expected);
+    assert.deepEqual(await run({ query: "10" }), expected);
+    assert.deepEqual(await run({ query: "Other leader" }), []);
+    assert.deepEqual(await run({ userId: "32" }), []);
+    assert.deepEqual(await run({ guildId: null }), []);
+    assert.deepEqual(await run({ action: "join" }), []);
+    assert.deepEqual(await run({ focusedName: "activity" }), []);
+    await assert.rejects(directory.update("20", "10", "31", "close"), /Only the group leader/);
+    await directory.update("20", "10", "30", "close");
+    assert.deepEqual(await run(), []);
+    await assert.rejects(directory.update("20", "10", "30", "close"), /closed, or expired/);
+  } finally { await rm(path, { recursive: true }); }
+});
+
+test("bounds suggestion labels and count, preserves full IDs, and responds empty on storage failure", async context => {
+  context.mock.method(console, "error", () => {});
+  const group = {
+    id: "12345678901234567890", guildId: "20", ownerId: "30", activity: "x".repeat(76) + "\u{1F525}xx",
+    capacity: 5, memberIds: ["30"], expiresAt: Date.now() + 60_000,
+  };
+  const request = autocomplete();
+  await handleLfgAutocomplete(request.value, { list: async () => Array.from({ length: 26 }, () => group) });
+  assert.equal(request.replies[0]?.length, 25);
+  for (const choice of request.replies[0]!) {
+    assert.ok(choice.name.length <= 100);
+    assert.ok(choice.name.endsWith(` (${group.id})`));
+    assert.equal(choice.value, group.id);
+    assert.equal(choice.name, `${"x".repeat(76)} (${group.id})`);
+  }
+  const failed = autocomplete();
+  await handleLfgAutocomplete(failed.value, { list: async () => { throw new Error("storage"); } });
+  assert.deepEqual(failed.replies, [[]]);
 });
 
 test("creates public groups and privately lists, joins, shows, leaves, and closes", async () => {

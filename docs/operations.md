@@ -200,7 +200,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.12.0`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.12.1`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 

@@ -25,7 +25,7 @@ import { GuildRosterMonitor, loadRosterState } from "./guild-roster.js";
 import { CrafterDirectory } from "./crafter-directory.js";
 import { buildCraftCommand, handleCraftCommand } from "./craft-command.js";
 import { LfgDirectory } from "./lfg-directory.js";
-import { buildLfgCommand, handleLfgCommand } from "./lfg-command.js";
+import { buildLfgCommand, handleLfgAutocomplete, handleLfgCommand } from "./lfg-command.js";
 import { LfgCommunications } from "./lfg-communications.js";
 import { DiscordLfgTransport } from "./lfg-discord.js";
 import { buildRosterCommand, handleRosterCommand } from "./roster-command.js";
@@ -267,6 +267,14 @@ client.on(Events.MessageCreate, async (message) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    if (interaction.commandName === config.lfgCommandName) {
+      await handleLfgAutocomplete(interaction, lfgDirectory);
+    } else {
+      await interaction.respond([]);
+    }
+    return;
+  }
   if ((interaction.isStringSelectMenu() || interaction.isButton()) && interaction.customId.startsWith("guildhead:main:")) {
     await handleCharacterMain(interaction, characterLinks, characterSync);
     return;

@@ -266,7 +266,11 @@ reports the announcement failure. Guildhead does not post in another channel
 as a fallback.
 
 Use the group ID from that announcement with `/lfg join`, `/lfg show`, or
-`/lfg leave`. Leaders receive a DM when someone joins or leaves; repeated joins
+`/lfg leave`. `/lfg close group` suggests your own open groups in the current
+server, shown as `Activity (ID)`. Type part of the activity or ID to filter;
+selecting a suggestion submits the ID. Closed, expired, and other leaders'
+groups are excluded. Manually entered IDs still require leader authorization.
+Leaders receive a DM when someone joins or leaves; repeated joins
 and leaving a group you did not join do not send notifications. If DMs are
 disabled or an announcement cannot be edited, a successful signup still
 stands. Use `/lfg show` to check stored membership. Only the leader can close a

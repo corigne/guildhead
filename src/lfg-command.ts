@@ -4,6 +4,7 @@ import {
   InteractionContextType,
   MessageFlags,
   SlashCommandBuilder,
+  type AutocompleteInteraction,
   type ChatInputCommandInteraction,
 } from "discord.js";
 
@@ -54,11 +55,38 @@ export function buildLfgCommand(name: string) {
             .setName("group")
             .setDescription("Group ID from the group post or list")
             .setRequired(true)
+            .setAutocomplete(action === "close")
             .setMaxLength(20),
         ),
     );
   }
   return command;
+}
+
+export async function handleLfgAutocomplete(
+  interaction: Pick<AutocompleteInteraction, "guildId" | "user" | "options" | "respond">,
+  directory: Pick<LfgDirectory, "list">,
+): Promise<void> {
+  let choices: { name: string; value: string }[] = [];
+  try {
+    const focused = interaction.options.getFocused(true);
+    if (interaction.guildId && interaction.options.getSubcommand() === "close" && focused.name === "group") {
+      const query = String(focused.value).trim().toLowerCase();
+      const groups = await directory.list(interaction.guildId);
+      choices = groups
+        .filter(group => group.ownerId === interaction.user.id)
+        .filter(group => `${group.activity} ${group.id}`.toLowerCase().includes(query))
+        .slice(0, 25)
+        .map(group => {
+          const suffix = ` (${group.id})`;
+          const activity = group.activity.slice(0, 100 - suffix.length).replace(/[\uD800-\uDBFF]$/, "");
+          return { name: `${activity}${suffix}`, value: group.id };
+        });
+    }
+  } catch (error) {
+    console.error("Could not load LFG close suggestions:", error);
+  }
+  await interaction.respond(choices);
 }
 
 type LfgInteraction = Pick<
