@@ -14,16 +14,16 @@ not a release-date promise.
 - Updated LFG announcements and join/leave notifications to group leaders.
   Delivery failures do not discard signups; failed post edits retry after
   restarts.
+- Private roster lookup by name, class, level, and numeric rank, using saved
+  snapshots with stale/unknown-age labels.
 
 ## Next
 
-1. Roster lookup by character name, class, level, and rank. Reuse existing
-   Blizzard snapshots and show how fresh they are.
-2. Harden existing features: scope crafter listings to their server, support
+1. Harden existing features: scope crafter listings to their server, support
    multiple characters per crafter, and cover more Discord delivery paths.
-3. Add a useful handoff to established scheduling tools such as Raid-Helper.
+2. Add a useful handoff to established scheduling tools such as Raid-Helper.
    Do not build another raid calendar without a concrete unmet need.
-4. Link Discord users to verified characters only if the available Blizzard
+3. Link Discord users to verified characters only if the available Blizzard
    authentication and character APIs support trustworthy ownership proof.
 
 ## Known limits

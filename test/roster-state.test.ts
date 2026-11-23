@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   initialRosterState,
+  parseRosterState,
   reconcileRoster,
   type RosterMember,
 } from "../src/roster-state.js";
@@ -62,4 +63,38 @@ test("cancels transient changes and confirms departures", () => {
   const departed = reconcileRoster(missingAgain.state, []);
   assert.deepEqual(departed.events, [{ type: "leaves", member }]);
   assert.deepEqual(departed.state.members, {});
+});
+
+test("validates saved roster contracts while accepting old snapshots without check times", () => {
+  const baseline = initialRosterState([member]);
+  assert.deepEqual(parseRosterState(baseline), baseline);
+  assert.deepEqual(
+    parseRosterState({ ...baseline, observations: { "leave:1": 1 }, checkedAt: 1_000 }),
+    { ...baseline, observations: { "leave:1": 1 }, checkedAt: 1_000 },
+  );
+  const invalid: unknown[] = [
+    null, [], 42,
+    { ...baseline, version: 2 },
+    { ...baseline, members: null },
+    { ...baseline, members: [] },
+    { ...baseline, observations: [] },
+    { ...baseline, members: { "1": null } },
+    { ...baseline, members: { "2": member } },
+    { ...baseline, members: { "1": { ...member, level: "32" } } },
+    { ...baseline, members: { "1": { ...member, rank: 1.5 } } },
+    ...["id", "name", "slug", "className"].flatMap((field) =>
+      ["", 42].map((value) => ({
+        ...baseline, members: { "1": { ...member, [field]: value } },
+      })),
+    ),
+    ...["1", 1.5, 0].map((count) => ({
+      ...baseline, observations: { "join:2": count },
+    })),
+    ...["1000", 1.5, 0, 8_640_000_000_000_001].map((checkedAt) => ({
+      ...baseline, checkedAt,
+    })),
+  ];
+  for (const state of invalid) {
+    assert.throws(() => parseRosterState(state));
+  }
 });

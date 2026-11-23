@@ -4,7 +4,7 @@ Effective date: November 23, 2026
 
 Guildhead scans messages only in Discord channel IDs configured by the
 operator. Slash commands may be used in other channels where the application
-is available; LFG commands require a server.
+is available; LFG and roster commands require a server.
 
 ## Data processed
 
@@ -19,8 +19,11 @@ Guildhead does not persist Discord message content. Wowhead lookup results are
 cached in process memory for 24 hours and disappear when the process restarts.
 When guild-roster monitoring is enabled, Guildhead stores a local roster
 snapshot containing character IDs, names, classes, levels and numeric guild
-ranks. This state is used only to detect changes and remains under the
-self-hosting operator's control. Crafter directory registrations store the
+ranks, plus the time of the last successful stored poll. This state detects
+changes and supplies private `/roster` results in the Discord server containing
+the configured announcement channel. Lookup filters are not persisted or sent
+to Blizzard. The state remains under the self-hosting operator's control.
+Crafter directory registrations store the
 registering Discord user ID, character name, profession, optional notes, and
 update time until the user removes that listing. Operational logs may contain
 Discord message IDs, character names and error details, but not bot tokens or

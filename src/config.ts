@@ -16,6 +16,7 @@ export interface Config {
   helpCommandName: string;
   craftCommandName: string;
   lfgCommandName: string;
+  rosterCommandName: string;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
   dataDir: string;
@@ -183,6 +184,11 @@ export function loadConfig(): Config {
     "lfg",
     "DISCORD_LFG_COMMAND_NAME",
   );
+  const rosterCommandName = parseCommandName(
+    process.env.DISCORD_ROSTER_COMMAND_NAME,
+    "roster",
+    "DISCORD_ROSTER_COMMAND_NAME",
+  );
   const dataDir = process.env.GUILDHEAD_DATA_DIR?.trim() || "/data";
   const flavors = parseFlavors(
     process.env.WOWHEAD_FLAVORS?.trim() || "forever",
@@ -196,8 +202,9 @@ export function loadConfig(): Config {
     throw new Error("WOWHEAD_FLAVORS must contain at least one flavor");
   }
   if (
-    new Set([commandName, helpCommandName, craftCommandName, lfgCommandName])
-      .size !== 4
+    new Set([
+      commandName, helpCommandName, craftCommandName, lfgCommandName, rosterCommandName,
+    ]).size !== 5
   ) {
     throw new Error(
       "Discord command names must be different",
@@ -213,6 +220,7 @@ export function loadConfig(): Config {
     helpCommandName,
     craftCommandName,
     lfgCommandName,
+    rosterCommandName,
     channelIds,
     flavors,
     dataDir,

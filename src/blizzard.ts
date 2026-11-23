@@ -3,7 +3,7 @@ import type { RosterMember } from "./roster-state.js";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
-const CLASS_NAMES: Readonly<Record<number, string>> = {
+export const CLASS_NAMES: Readonly<Record<number, string>> = {
   1: "Warrior",
   2: "Paladin",
   3: "Hunter",

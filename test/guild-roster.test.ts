@@ -59,6 +59,8 @@ test("persists a baseline and announces confirmed roster changes", async () => {
       ["1"],
     );
     assert.equal(sent.length, 0);
+    const firstCheck = (await loadRosterState(config))?.checkedAt;
+    assert.equal(typeof firstCheck, "number");
 
     roster = [
       member,
@@ -73,6 +75,7 @@ test("persists a baseline and announces confirmed roster changes", async () => {
     await monitor.pollOnce();
     await monitor.pollOnce();
     assert.equal(sent.length, 1);
+    assert.ok((await loadRosterState(config))!.checkedAt! >= firstCheck!);
   } finally {
     await rm(dataDir, { recursive: true });
   }
@@ -134,7 +137,7 @@ test("starts polling and skips overlapping polls", async () => {
   }
 });
 
-test("logs unsendable announcement channels without advancing state", async () => {
+test("keeps the last good snapshot when polling or announcement delivery fails", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "guildhead-roster-"));
   const config = {
     clientId: "client",
@@ -156,6 +159,7 @@ test("logs unsendable announcement channels without advancing state", async () =
     version: 1,
     members: { [member.id]: member },
     observations: { "join:2": 1 },
+    checkedAt: 1_000,
   });
   const errors: unknown[][] = [];
   const originalError = console.error;
@@ -170,6 +174,12 @@ test("logs unsendable announcement channels without advancing state", async () =
     }).pollOnce();
     assert.equal(errors.length, 1);
     assert.equal((await loadRosterState(config))?.members["2"], undefined);
+    assert.equal((await loadRosterState(config))?.checkedAt, 1_000);
+    await new GuildRosterMonitor(discord, config, {
+      guildRoster: async () => { throw new Error("Blizzard unavailable"); },
+    }).pollOnce();
+    assert.equal(errors.length, 2);
+    assert.equal((await loadRosterState(config))?.checkedAt, 1_000);
   } finally {
     console.error = originalError;
     await rm(dataDir, { recursive: true });

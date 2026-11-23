@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+
 export interface RosterMember {
   id: string;
   name: string;
@@ -20,6 +22,45 @@ export interface RosterState {
   version: 1;
   members: Record<string, RosterMember>;
   observations: Record<string, number>;
+  checkedAt?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function parseRosterState(value: unknown): RosterState {
+  assert(isRecord(value), "Stored roster state must be an object");
+  assert.equal(value.version, 1, "stored roster state has an unsupported shape");
+  assert(isRecord(value.members), "Invalid stored roster members");
+  assert(isRecord(value.observations), "Invalid stored roster observations");
+  for (const [id, member] of Object.entries(value.members)) {
+    assert(isRecord(member), "Invalid stored roster member");
+    for (const field of ["id", "name", "slug", "className"]) {
+      assert(
+        typeof member[field] === "string" && member[field].trim().length > 0,
+        `Invalid stored roster member ${field}`,
+      );
+    }
+    assert.equal(member.id, id, "Stored roster member ID does not match its key");
+    assert(Number.isSafeInteger(member.level), "Invalid stored roster level");
+    assert(Number.isSafeInteger(member.rank), "Invalid stored roster rank");
+  }
+  for (const count of Object.values(value.observations)) {
+    assert(
+      typeof count === "number" && Number.isSafeInteger(count) && count > 0,
+      "Invalid stored roster observation count",
+    );
+  }
+  assert(
+    value.checkedAt === undefined ||
+      (typeof value.checkedAt === "number" &&
+        Number.isSafeInteger(value.checkedAt) &&
+        value.checkedAt > 0 &&
+        value.checkedAt <= 8_640_000_000_000_000),
+    "Invalid stored roster check time",
+  );
+  return value as unknown as RosterState;
 }
 
 export function initialRosterState(

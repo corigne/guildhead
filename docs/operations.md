@@ -19,6 +19,7 @@ Optional settings:
 | `DISCORD_HELP_COMMAND_NAME` | `help` | Private command help |
 | `DISCORD_CRAFT_COMMAND_NAME` | `craft` | Crafter directory |
 | `DISCORD_LFG_COMMAND_NAME` | `lfg` | Group finding |
+| `DISCORD_ROSTER_COMMAND_NAME` | `roster` | Private saved-roster lookup |
 | `DISCORD_WEBHOOK_URL` | unset | Use a supplied webhook instead of managing one per channel |
 | `GUILDHEAD_DATA_DIR` | `/data` | Persistent JSON state |
 
@@ -47,7 +48,7 @@ Compose mounts a named volume at `/data`. It contains:
 
 | File | Contents |
 |---|---|
-| `guild-roster-<guild-slug>.json` | Confirmed members and pending observations |
+| `guild-roster-<guild-slug>.json` | Confirmed members, pending observations, last successful stored poll time |
 | `crafters.json` | Self-registered crafter listings |
 | `lfg.json` | LFG groups and announcement tracking |
 
@@ -94,7 +95,7 @@ docker compose up -d --build
 docker compose logs --tail=80 bot
 ```
 
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.6.0`
+For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.7.0`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
@@ -107,6 +108,11 @@ v1.6 can read v1.5 LFG files without resetting groups. It adds announcement
 tracking to the same file. Before downgrading, keep a backup: v1.5 ignores that
 tracking and drops it on its next write. Existing pre-v1.6 announcements remain
 snapshots; do not reset group state to try to recover their message IDs.
+
+v1.7 adds an optional roster check timestamp without changing the state version
+or resetting confirmed members and pending observations. Older files remain
+usable; `/roster` reports unknown age until a successful poll stores the time.
+Older releases ignore the timestamp and may drop it on their next write.
 
 ## Troubleshooting
 
@@ -127,6 +133,18 @@ before sharing them.
 (UID 1000 in the bundled image). Bind mounts and restored volumes must be
 writable by that user. Repair ownership only on Guildhead's data directory,
 not on a shared parent directory.
+
+**Roster lookup unavailable:** `/roster` needs the existing Blizzard roster
+configuration and a successful initial poll. It only works in the server
+containing the configured announcement channel. The bot must still be able to
+fetch that channel to verify the server, even when lookup runs elsewhere in
+that server.
+
+**Roster lookup is stale:** the saved snapshot has not advanced for more than
+two polling intervals. Check poll errors, credentials, Blizzard availability,
+and announcement delivery permissions. A failed poll or announcement delivery
+does not advance the stored timestamp. Searching the roster never fetches new
+Blizzard data or changes the existing confirmation rules.
 
 **Corrupt JSON state:** stop the bot and copy the affected file for inspection.
 Restore a known-good backup. Do not delete the file merely to silence an error:

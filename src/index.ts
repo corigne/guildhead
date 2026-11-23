@@ -32,6 +32,7 @@ import { LfgDirectory } from "./lfg-directory.js";
 import { buildLfgCommand, handleLfgCommand } from "./lfg-command.js";
 import { LfgCommunications } from "./lfg-communications.js";
 import { DiscordLfgTransport } from "./lfg-discord.js";
+import { buildRosterCommand, handleRosterCommand } from "./roster-command.js";
 
 const config = loadConfig();
 const configuredWebhook = config.webhookUrl
@@ -41,6 +42,7 @@ const channelWebhooks = new Map<string, WebhookClient>();
 const crafterDirectory = new CrafterDirectory(config.dataDir);
 const lfgDirectory = new LfgDirectory(config.dataDir);
 const lfgCommand = buildLfgCommand(config.lfgCommandName);
+const rosterCommand = buildRosterCommand(config.rosterCommandName);
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -189,9 +191,10 @@ client.once(Events.ClientReady, async (readyClient) => {
       helpCommand.toJSON(),
       craftCommand.toJSON(),
       lfgCommand.toJSON(),
+      rosterCommand.toJSON(),
     ]);
     console.log(
-      `Registered /${config.commandName}, /${config.helpCommandName}, /${config.craftCommandName}, and /${config.lfgCommandName} commands`,
+      `Registered /${config.commandName}, /${config.helpCommandName}, /${config.craftCommandName}, /${config.lfgCommandName}, and /${config.rosterCommandName} commands`,
     );
   } catch (error) {
     console.error("Could not register Discord commands:", error);
@@ -295,6 +298,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
             "`show|join|leave|close group`: manage a group by ID",
         },
         {
+          name: `/${config.rosterCommandName}`,
+          value:
+            "`name? class? level? rank?`: filter the saved guild roster\n" +
+            "Private results with snapshot age; not live online status",
+        },
+        {
           name: "Automatic tooltips",
           value:
             "Use `[Exact Name]` in a configured WoW-linked channel. " +
@@ -310,6 +319,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       embeds: [help],
       flags: MessageFlags.Ephemeral,
     });
+    return;
+  }
+
+  if (interaction.commandName === config.rosterCommandName) {
+    await handleRosterCommand(interaction, client, config.guildRoster);
     return;
   }
 

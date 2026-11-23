@@ -11,6 +11,7 @@ import { BlizzardClient, slugifyGuildName } from "./blizzard.js";
 import type { GuildRosterConfig } from "./config.js";
 import {
   initialRosterState,
+  parseRosterState,
   reconcileRoster,
   type RosterEvent,
   type RosterState,
@@ -27,24 +28,9 @@ export async function loadRosterState(
   config: GuildRosterConfig,
 ): Promise<RosterState | undefined> {
   try {
-    const parsed: unknown = JSON.parse(
-      await readFile(statePath(config), "utf8"),
+    return parseRosterState(
+      JSON.parse(await readFile(statePath(config), "utf8")),
     );
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      !("version" in parsed) ||
-      parsed.version !== 1 ||
-      !("members" in parsed) ||
-      typeof parsed.members !== "object" ||
-      parsed.members === null ||
-      !("observations" in parsed) ||
-      typeof parsed.observations !== "object" ||
-      parsed.observations === null
-    ) {
-      throw new Error("stored roster state has an unsupported shape");
-    }
-    return parsed as RosterState;
   } catch (error) {
     if (
       error instanceof Error &&
@@ -179,9 +165,13 @@ export class GuildRosterMonitor {
 
     try {
       const currentMembers = await this.blizzard.guildRoster();
+      const checkedAt = Date.now();
       const previousState = await loadRosterState(this.config);
       if (!previousState) {
-        await saveRosterState(this.config, initialRosterState(currentMembers));
+        await saveRosterState(this.config, {
+          ...initialRosterState(currentMembers),
+          checkedAt,
+        });
         console.log(
           `Initialized ${this.config.guildName} roster with ${currentMembers.length} members`,
         );
@@ -203,7 +193,7 @@ export class GuildRosterMonitor {
         }
       }
 
-      await saveRosterState(this.config, result.state);
+      await saveRosterState(this.config, { ...result.state, checkedAt });
       console.log(
         `Checked ${this.config.guildName} roster: ${currentMembers.length} members, ${events.length} announcements`,
       );

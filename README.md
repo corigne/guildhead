@@ -25,6 +25,7 @@ and Wowhead links.
 - Multiple tooltip cards grouped into one Discord message
 - `/wow` search command usable in any Discord channel
 - Confirmed guild join and rank-change announcements from Blizzard roster data
+- Private roster lookup by character name, class, level, and rank
 - Guild-maintained crafter directory with find, register, and remove commands
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Updated LFG announcements and leader DMs when players join or leave
@@ -68,9 +69,9 @@ DISCORD_TOKEN=your-bot-token
 DISCORD_CHANNEL_IDS=123456789012345678
 ```
 
-The default commands are `/wow`, `/help`, `/craft`, and `/lfg`. The default
+The default commands are `/wow`, `/help`, `/craft`, `/lfg`, and `/roster`. The default
 Wowhead database is Forever; no Blizzard credentials are needed for tooltips,
-crafters, or LFG. Blizzard credentials enable roster monitoring only.
+crafters, or LFG. Blizzard credentials enable roster monitoring and lookup.
 
 Multiple channel IDs and databases use comma-separated values:
 
@@ -137,6 +138,7 @@ silently storing or displaying partial data.
 /lfg join group:<group ID>
 /lfg leave group:<group ID>
 /lfg close group:<group ID>
+/roster name:<optional> class:<optional> level:<optional> rank:<optional>
 ```
 
 Discord advertises the command description, query argument, and database
@@ -157,6 +159,25 @@ their own listings.
 `/wow` returns the top Wowhead result. In a WoW-linked channel, Guildhead
 posts through its managed webhook and acknowledges the command privately. In
 normal Discord channels, the command response appears directly.
+
+### Roster lookup
+
+`/roster` reads the saved, confirmed guild roster. Combine optional filters:
+`/roster name:Pepper`, `/roster class:Mage level:32`, or `/roster rank:0`.
+Names match part of a character's name without case sensitivity; class,
+level, and rank are exact matches. Rank 0 is highest. Results are alphabetical,
+with at most 15 characters shown; narrow the filters for larger rosters.
+
+Replies are private, including in WoW-linked channels. Lookup only works in
+the Discord server containing `GUILD_ANNOUNCEMENT_CHANNEL_ID`; installing the
+same bot elsewhere does not expose that roster.
+
+Each reply shows when the saved roster was last checked. More than two polling
+intervals without a successful stored poll produces a stale warning. Older
+snapshots show unknown age until the next successful poll; file modification
+times are not treated as Blizzard data timestamps. Lookup does not trigger a
+Blizzard request, reveal online status, or bypass the two-poll change confirmation.
+Set `DISCORD_ROSTER_COMMAND_NAME` to rename the command.
 
 ### Lightweight group finding
 

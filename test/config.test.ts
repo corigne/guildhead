@@ -103,6 +103,7 @@ test("loads complete Discord and roster configuration", () => {
     DISCORD_HELP_COMMAND_NAME: "help",
     DISCORD_CRAFT_COMMAND_NAME: "craft",
     DISCORD_LFG_COMMAND_NAME: "group",
+    DISCORD_ROSTER_COMMAND_NAME: "guild-roster",
     WOWHEAD_FLAVORS: "forever,classic",
     BLIZZARD_CLIENT_ID: "client",
     BLIZZARD_CLIENT_SECRET: "secret",
@@ -121,6 +122,7 @@ test("loads complete Discord and roster configuration", () => {
     assert.deepEqual(config.flavors, ["forever", "classic"]);
     assert.equal(config.craftCommandName, "craft");
     assert.equal(config.lfgCommandName, "group");
+    assert.equal(config.rosterCommandName, "guild-roster");
     assert.equal(config.guildRoster?.region, "eu");
     assert.equal(config.guildRoster?.pollMinutes, 5);
     assert.deepEqual(
@@ -141,6 +143,7 @@ test("rejects invalid configuration values", () => {
     DISCORD_HELP_COMMAND_NAME: "help",
     DISCORD_CRAFT_COMMAND_NAME: "craft",
     DISCORD_LFG_COMMAND_NAME: "lfg",
+    DISCORD_ROSTER_COMMAND_NAME: "roster",
     WOWHEAD_FLAVORS: "forever",
     BLIZZARD_CLIENT_ID: "client",
     BLIZZARD_CLIENT_SECRET: "secret",
@@ -154,6 +157,8 @@ test("rejects invalid configuration values", () => {
     [{ WOWHEAD_FLAVORS: "invalid" }, /unsupported values/],
     [{ DISCORD_CRAFT_COMMAND_NAME: "wow" }, /must be different/],
     [{ DISCORD_LFG_COMMAND_NAME: "craft" }, /must be different/],
+    [{ DISCORD_ROSTER_COMMAND_NAME: "lfg" }, /must be different/],
+    [{ DISCORD_ROSTER_COMMAND_NAME: "Guild Roster" }, /DISCORD_ROSTER_COMMAND_NAME/],
     [{ BLIZZARD_REGION: "invalid" }, /BLIZZARD_REGION/],
     [{ GUILD_ANNOUNCE_EVENTS: "invalid" }, /unsupported values/],
     [{ GUILD_ROSTER_POLL_MINUTES: "1" }, /between 2 and 1440/],
