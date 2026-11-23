@@ -4,7 +4,7 @@ import type { Config } from "./config.js";
 
 export const defaultWelcomeMessage = `Hey, welcome in!
 
-Guildhead helps with WoW item lookups, finding crafters, and getting a group together.
+Guildhead helps bring Discord and your WoW guild closer together. It started with item and quest tooltips in synced guild chat, and also helps you find crafters and get groups together.
 
 Try \`{help}\` in {commandChannel} for the full guide. A few useful commands:
 - \`{wow} query:Hearthstone\` looks up an item.
