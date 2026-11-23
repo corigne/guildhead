@@ -16,9 +16,9 @@ test("renders default onboarding with configured commands and privacy/source gui
   for (const command of ["/guide", "/lookup", "/crafters", "/group", "/guild", "/toon link", "/toon main", "/toon unlink"]) {
     assert.ok(message.includes(command));
   }
-  assert.match(message, /Entirely optional/);
-  assert.match(message, /never receives your password/);
-  assert.match(message, /not a progression or role-enforcement tool/);
+  assert.match(message, /Linking your account is optional/);
+  assert.match(message, /Battle.net handles sign-in, and your password stays private/);
+  assert.match(message, /play at your own pace/);
   assert.match(message, /https:\/\/github.com\/corigne\/guildhead/);
   assert.doesNotMatch(message, /\.michelin/);
   assert.match(loadWelcomeMessage({ ...config, commandChannelId: "123" }), /<#123>/);

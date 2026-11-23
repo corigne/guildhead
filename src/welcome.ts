@@ -2,15 +2,22 @@ import { readFileSync } from "node:fs";
 import { MessageFlags, type MessageCreateOptions } from "discord.js";
 import type { Config } from "./config.js";
 
-export const defaultWelcomeMessage = `Welcome! I'm **Guildhead**, a World of Warcraft quality-of-life bot.
+export const defaultWelcomeMessage = `Hey, welcome in!
 
-**No linking needed:** use {help}, {wow}, {craft}, {lfg}, and {roster} for command help, tooltips, crafters, groups, and the saved guild roster. You can register crafters manually. Use {commandChannel} for commands.
+Guildhead helps with WoW item lookups, finding crafters, and getting a group together.
 
-**Entirely optional:** {character} link verifies your guild characters through Battle.net. Selecting a main with {character} main enables synced crafter listings and, if configured, class/profession roles. Linking is never required to participate; Guildhead is not a progression or role-enforcement tool.
+Try \`{help}\` in {commandChannel} for the full guide. A few useful commands:
+- \`{wow} query:Hearthstone\` looks up an item.
+- \`{craft} find profession:Blacksmithing\` finds crafters. You can list yours manually too.
+- \`{lfg} list\` shows groups, and \`{roster}\` shows the saved guild roster when configured.
 
-Sign in only at Battle.net. Guildhead never receives your password or authenticator codes and does not store access tokens. It saves matching guild characters and public profession data, not unrelated alts. Use {character} unlink to remove the saved link; see {character} link for details before signing in.
+Linking your account is optional. If you'd like synced crafter skills, use \`{character} link\`, then \`{character} main\` to choose your main. Class and profession roles are also available when the server enables them.
 
-**Open source:** review how it works, including linking and privacy: {source}`;
+The commands above work without linking. Use whatever helps, and play at your own pace.
+
+Battle.net handles sign-in, and your password stays private. \`{character} link\` explains what's shared before you sign in; \`{character} unlink\` removes your saved link.
+
+Want to see how it works? The code and privacy details are public: {source}`;
 
 type WelcomeConfig = Pick<Config,
   "welcomeMessageFile" | "helpCommandName" | "commandName" | "craftCommandName" |

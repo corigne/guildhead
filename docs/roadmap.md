@@ -33,10 +33,26 @@ not a release-date promise.
 1. Validate character linking with a consenting player on the deployed
    callback. Public character and profession endpoints return 200; app tokens
    correctly receive 403 from the account endpoint.
-2. Validate known-recipe payloads before adding recipe lookup. Profession skills
-   are synced; free-form recipe notes remain self-reported.
+2. Expand known-recipe validation before adding recipe lookup. The first public
+   sample is documented below. Profession skills are synced; free-form recipe
+   notes remain self-reported.
 3. Add a useful handoff to established scheduling tools such as Raid-Helper.
    Do not build another raid calendar without a concrete unmet need.
+
+### Recipe API evidence
+
+A read-only check on November 23, 2026 validated 113 recipe references across
+two primary and three secondary professions on one available public profile.
+Each observed `known_recipes` entry contained a positive integer `id`, a
+nonempty `name`, and `key.href` pointing to the regional Blizzard
+`/data/wow/recipe/{id}` endpoint. The links used a versioned
+`static-<version>-forever-us` namespace.
+
+This is one sample, not a complete contract for all regions, profession states,
+or recipe-detail responses. Recipe lookup still needs runtime validation,
+focused fixtures, and a defined user command. Future requests should construct
+fixed regional endpoints rather than follow upstream URLs blindly. No player
+identifiers, recipe lists, or tokens were saved during this probe.
 
 ## Known limits
 
