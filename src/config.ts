@@ -12,6 +12,8 @@ export type Flavor = keyof typeof flavorDefinitions;
 export interface Config {
   token: string;
   webhookUrl?: string;
+  commandName: string;
+  helpCommandName: string;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
 }
@@ -65,8 +67,28 @@ function parseFlavors(value: string): Flavor[] {
   return flavors as Flavor[];
 }
 
+export function parseCommandName(
+  value: string | undefined,
+  defaultName = "wow",
+  variableName = "DISCORD_COMMAND_NAME",
+): string {
+  const commandName = value?.trim() || defaultName;
+  if (!/^[a-z0-9_-]{1,32}$/.test(commandName)) {
+    throw new Error(
+      `${variableName} must contain 1-32 lowercase letters, numbers, underscores, or hyphens`,
+    );
+  }
+  return commandName;
+}
+
 export function loadConfig(): Config {
   const channelIds = new Set(parseList(required("DISCORD_CHANNEL_IDS")));
+  const commandName = parseCommandName(process.env.DISCORD_COMMAND_NAME);
+  const helpCommandName = parseCommandName(
+    process.env.DISCORD_HELP_COMMAND_NAME,
+    "help",
+    "DISCORD_HELP_COMMAND_NAME",
+  );
   const flavors = parseFlavors(
     process.env.WOWHEAD_FLAVORS?.trim() || "forever",
   );
@@ -77,12 +99,19 @@ export function loadConfig(): Config {
   if (flavors.length === 0) {
     throw new Error("WOWHEAD_FLAVORS must contain at least one flavor");
   }
+  if (commandName === helpCommandName) {
+    throw new Error(
+      "DISCORD_COMMAND_NAME and DISCORD_HELP_COMMAND_NAME must be different",
+    );
+  }
 
   return {
     token: readSecret("DISCORD_TOKEN"),
     ...(process.env.DISCORD_WEBHOOK_URL?.trim()
       ? { webhookUrl: process.env.DISCORD_WEBHOOK_URL.trim() }
       : {}),
+    commandName,
+    helpCommandName,
     channelIds,
     flavors,
   };

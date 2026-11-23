@@ -1,8 +1,10 @@
 import {
+  ActivityType,
   ChannelType,
   Client,
   Events,
   GatewayIntentBits,
+  EmbedBuilder,
   MessageFlags,
   SlashCommandBuilder,
   type TextChannel,
@@ -33,8 +35,8 @@ const client = new Client({
   ],
 });
 const wowCommand = new SlashCommandBuilder()
-  .setName("wow")
-  .setDescription("Search Wowhead and show a WoW tooltip")
+  .setName(config.commandName)
+  .setDescription("Search Wowhead for items, quests, spells, NPCs, and achievements")
   .addStringOption((option) =>
     option
       .setName("query")
@@ -53,6 +55,9 @@ const wowCommand = new SlashCommandBuilder()
         })),
       ),
   );
+const helpCommand = new SlashCommandBuilder()
+  .setName(config.helpCommandName)
+  .setDescription("Show Guildhead commands and usage");
 
 async function webhookForChannel(channel: TextChannel): Promise<WebhookClient> {
   if (configuredWebhook) {
@@ -91,10 +96,21 @@ async function webhookForChannel(channel: TextChannel): Promise<WebhookClient> {
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+  readyClient.user.setActivity(
+    `/${config.helpCommandName} | /${config.commandName}`,
+    {
+      type: ActivityType.Watching,
+    },
+  );
 
   try {
-    await readyClient.application.commands.set([wowCommand.toJSON()]);
-    console.log("Registered /wow command");
+    await readyClient.application.commands.set([
+      wowCommand.toJSON(),
+      helpCommand.toJSON(),
+    ]);
+    console.log(
+      `Registered /${config.commandName} and /${config.helpCommandName} commands`,
+    );
   } catch (error) {
     console.error("Could not register Discord commands:", error);
   }
@@ -148,7 +164,47 @@ client.on(Events.MessageCreate, async (message) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== "wow") {
+  if (!interaction.isChatInputCommand()) {
+    return;
+  }
+
+  if (interaction.commandName === config.helpCommandName) {
+    const databases = config.flavors
+      .map((flavor) => flavorDefinitions[flavor].label)
+      .join(", ");
+    const help = new EmbedBuilder()
+      .setTitle("Guildhead commands")
+      .setColor(0xf0b132)
+      .setDescription(
+        "Guildhead adds WoW-style Wowhead tooltips to Discord conversations.",
+      )
+      .addFields(
+        {
+          name: `/${config.commandName}`,
+          value:
+            "`query` (required): item, quest, spell, NPC, or achievement\n" +
+            "`database` (optional): Forever, Retail, Classic Era, or Cataclysm Classic",
+        },
+        {
+          name: "Automatic tooltips",
+          value:
+            "Use `[Exact Name]` in a configured WoW-linked channel. " +
+            "Up to three unique links are resolved per message.",
+        },
+        {
+          name: "Configured databases",
+          value: databases,
+        },
+      )
+      .setFooter({ text: "Guildhead | Wowhead tooltips for guild chat" });
+    await interaction.reply({
+      embeds: [help],
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (interaction.commandName !== config.commandName) {
     return;
   }
 
@@ -192,7 +248,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.editReply(response);
   } catch (error) {
-    console.error(`Failed /wow query "${query}":`, error);
+    console.error(`Failed /${config.commandName} query "${query}":`, error);
     await interaction.editReply("Guildhead could not complete that Wowhead search.");
   }
 });

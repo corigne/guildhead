@@ -60,6 +60,8 @@ Required values:
 
 ```dotenv
 DISCORD_TOKEN=your-bot-token
+DISCORD_COMMAND_NAME=wow
+DISCORD_HELP_COMMAND_NAME=help
 DISCORD_CHANNEL_IDS=123456789012345678
 WOWHEAD_FLAVORS=forever
 ```
@@ -87,11 +89,22 @@ creates and reuses a webhook in each configured channel.
 
 ```text
 /wow query:<name> database:<optional database>
+/help
 ```
 
-`/wow` returns the top Wowhead result. In a WoW-linked channel, Guildhead posts
-through its managed webhook and acknowledges the command privately. In normal
-Discord channels, the command response appears directly.
+Discord advertises the command description, query argument, and database
+choices in its slash-command picker. `/help` privately shows Guildhead's
+commands, arguments, automatic-tooltip syntax, and configured databases.
+Guildhead also advertises both active command names in its Discord activity.
+
+Set `DISCORD_COMMAND_NAME=guildhead` to use `/guildhead` instead when another
+bot already owns `/wow`. Set `DISCORD_HELP_COMMAND_NAME=guildhead-help` when
+`/help` also overlaps. Changing either setting replaces the previously
+registered commands after Guildhead restarts.
+
+The command returns the top Wowhead result. In a WoW-linked channel, Guildhead
+posts through its managed webhook and acknowledges the command privately. In
+normal Discord channels, the command response appears directly.
 
 ## Run with Docker Compose
 

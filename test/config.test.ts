@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { readSecret } from "../src/config.js";
+import { parseCommandName, readSecret } from "../src/config.js";
 
 test("reads a secret from its Docker secret file", () => {
   const directory = mkdtempSync(join(tmpdir(), "guildhead-"));
@@ -23,4 +23,17 @@ test("reads a secret from its Docker secret file", () => {
     }
     rmSync(directory, { recursive: true });
   }
+});
+
+test("uses a configurable Discord command name", () => {
+  assert.equal(parseCommandName(undefined), "wow");
+  assert.equal(parseCommandName("guildhead"), "guildhead");
+  assert.equal(
+    parseCommandName(undefined, "help", "DISCORD_HELP_COMMAND_NAME"),
+    "help",
+  );
+  assert.throws(
+    () => parseCommandName("Guild Head"),
+    /DISCORD_COMMAND_NAME/,
+  );
 });
