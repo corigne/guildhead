@@ -17,7 +17,7 @@ test("renders default onboarding with configured commands and privacy/source gui
     assert.ok(message.includes(command));
   }
   assert.match(message, /Linking your account is optional/);
-  assert.match(message, /Battle.net handles sign-in, and your password stays private/);
+  assert.match(message, /Battle.net handles sign-in, and we never see your password/);
   assert.match(message, /play at your own pace/);
   assert.match(message, /https:\/\/github.com\/corigne\/guildhead/);
   assert.doesNotMatch(message, /\.michelin/);

@@ -15,7 +15,7 @@ Linking your account is optional. If you'd like synced crafter skills, use \`{ch
 
 The commands above work without linking. Use whatever helps, and play at your own pace.
 
-Battle.net handles sign-in, and your password stays private. \`{character} link\` explains what's shared before you sign in; \`{character} unlink\` removes your saved link.
+Battle.net handles sign-in, and we never see your password. \`{character} link\` explains what's shared before you sign in; \`{character} unlink\` removes your saved link.
 
 Want to see how it works? The code and privacy details are public: {source}`;
 
