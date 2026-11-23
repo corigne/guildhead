@@ -14,10 +14,13 @@ operator.
 
 ## Storage
 
-Guildhead has no database and does not persist Discord message content.
-Wowhead lookup results are cached in process memory for 24 hours and disappear
-when the process restarts. Operational logs may contain Discord message IDs and
-error details, but not bot tokens or webhook URLs.
+Guildhead does not persist Discord message content. Wowhead lookup results are
+cached in process memory for 24 hours and disappear when the process restarts.
+When guild-roster monitoring is enabled, Guildhead stores a local roster
+snapshot containing character IDs, names, classes, levels and numeric guild
+ranks. This state is used only to detect changes and remains under the
+self-hosting operator's control. Operational logs may contain Discord message
+IDs, character names and error details, but not bot tokens or webhook URLs.
 
 ## Third parties
 

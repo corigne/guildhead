@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { parseCommandName, readSecret } from "../src/config.js";
+import {
+  loadConfig,
+  parseCommandName,
+  readSecret,
+} from "../src/config.js";
 
 test("reads a secret from its Docker secret file", () => {
   const directory = mkdtempSync(join(tmpdir(), "guildhead-"));
@@ -36,4 +40,24 @@ test("uses a configurable Discord command name", () => {
     () => parseCommandName("Guild Head"),
     /DISCORD_COMMAND_NAME/,
   );
+});
+
+test("rejects partial Blizzard credentials", () => {
+  const previousEnvironment = { ...process.env };
+  Object.assign(process.env, {
+    DISCORD_TOKEN: "test-token",
+    DISCORD_CHANNEL_IDS: "123",
+    BLIZZARD_CLIENT_ID: "client-id",
+  });
+  delete process.env.BLIZZARD_CLIENT_SECRET;
+  delete process.env.BLIZZARD_CLIENT_SECRET_FILE;
+
+  try {
+    assert.throws(
+      () => loadConfig(),
+      /BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET/,
+    );
+  } finally {
+    process.env = previousEnvironment;
+  }
 });

@@ -24,6 +24,7 @@ and Wowhead links.
 - Up to three unique bracketed links per message
 - Multiple tooltip cards grouped into one Discord message
 - `/wow` search command usable in any Discord channel
+- Confirmed guild join and rank-change announcements from Blizzard roster data
 - Exact-name matching to avoid unrelated search results
 - 24-hour lookup cache to reduce Wowhead traffic
 - Docker and Docker Compose deployment
@@ -84,6 +85,30 @@ Supported database values:
 
 `DISCORD_WEBHOOK_URL` is optional. When omitted, Guildhead automatically
 creates and reuses a webhook in each configured channel.
+
+## Guild roster announcements
+
+Guildhead can poll the observed WoW Forever guild-roster API and announce
+confirmed joins, departures, and numeric rank changes. Forever API support is
+not yet documented by Blizzard and roster snapshots may lag behind the game.
+Guildhead requires the same change to appear in two consecutive polls before
+announcing it.
+
+Create a Battle.net developer application, then add:
+
+```dotenv
+BLIZZARD_CLIENT_ID=your-client-id
+BLIZZARD_CLIENT_SECRET=your-client-secret
+BLIZZARD_REGION=us
+BLIZZARD_GUILD_NAME=Pizzahut Smoking Section
+GUILD_ANNOUNCEMENT_CHANNEL_ID=123456789012345678
+GUILD_ANNOUNCE_EVENTS=joins,ranks
+GUILD_ROSTER_POLL_MINUTES=10
+```
+
+Supported events are `joins`, `leaves`, and `ranks`. Rank names are not
+provided by the Forever API, so rank announcements use numeric values. The
+first successful poll creates a baseline and never emits historical joins.
 
 ## Commands
 

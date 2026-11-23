@@ -16,6 +16,18 @@ export interface Config {
   helpCommandName: string;
   channelIds: ReadonlySet<string>;
   flavors: readonly Flavor[];
+  guildRoster?: GuildRosterConfig;
+}
+
+export interface GuildRosterConfig {
+  clientId: string;
+  clientSecret: string;
+  region: "us" | "eu" | "kr" | "tw";
+  guildName: string;
+  announcementChannelId: string;
+  events: ReadonlySet<"joins" | "leaves" | "ranks">;
+  pollMinutes: number;
+  dataDir: string;
 }
 
 function required(name: string): string {
@@ -45,6 +57,22 @@ export function readSecret(name: string): string {
     throw new Error(`${name}_FILE at ${file} is empty`);
   }
   return value;
+}
+
+function readOptionalSecret(name: string): string | undefined {
+  const file = process.env[`${name}_FILE`]?.trim();
+  if (file) {
+    let value: string;
+    try {
+      value = readFileSync(file, "utf8").trim();
+    } catch (error) {
+      throw new Error(`Could not read ${name}_FILE at ${file}`, {
+        cause: error,
+      });
+    }
+    return value || undefined;
+  }
+  return process.env[name]?.trim() || undefined;
 }
 
 function parseList(value: string): string[] {
@@ -81,6 +109,59 @@ export function parseCommandName(
   return commandName;
 }
 
+function parseGuildRosterConfig(): GuildRosterConfig | undefined {
+  const clientId = process.env.BLIZZARD_CLIENT_ID?.trim();
+  const clientSecret = readOptionalSecret("BLIZZARD_CLIENT_SECRET");
+  if (!clientId && !clientSecret) {
+    return undefined;
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET must be configured together",
+    );
+  }
+
+  const region = process.env.BLIZZARD_REGION?.trim() || "us";
+  if (!["us", "eu", "kr", "tw"].includes(region)) {
+    throw new Error("BLIZZARD_REGION must be us, eu, kr, or tw");
+  }
+
+  const guildName = required("BLIZZARD_GUILD_NAME");
+  const announcementChannelId = required("GUILD_ANNOUNCEMENT_CHANNEL_ID");
+  const events = new Set(
+    parseList(process.env.GUILD_ANNOUNCE_EVENTS?.trim() || "joins"),
+  );
+  const invalidEvents = [...events].filter(
+    (event) => !["joins", "leaves", "ranks"].includes(event),
+  );
+  if (invalidEvents.length > 0) {
+    throw new Error(
+      `GUILD_ANNOUNCE_EVENTS contains unsupported values: ${invalidEvents.join(", ")}`,
+    );
+  }
+
+  const pollMinutes = Number.parseInt(
+    process.env.GUILD_ROSTER_POLL_MINUTES?.trim() || "10",
+    10,
+  );
+  if (!Number.isInteger(pollMinutes) || pollMinutes < 2 || pollMinutes > 1440) {
+    throw new Error(
+      "GUILD_ROSTER_POLL_MINUTES must be an integer between 2 and 1440",
+    );
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    region: region as GuildRosterConfig["region"],
+    guildName,
+    announcementChannelId,
+    events: events as GuildRosterConfig["events"],
+    pollMinutes,
+    dataDir: process.env.GUILDHEAD_DATA_DIR?.trim() || "/data",
+  };
+}
+
 export function loadConfig(): Config {
   const channelIds = new Set(parseList(required("DISCORD_CHANNEL_IDS")));
   const commandName = parseCommandName(process.env.DISCORD_COMMAND_NAME);
@@ -92,6 +173,7 @@ export function loadConfig(): Config {
   const flavors = parseFlavors(
     process.env.WOWHEAD_FLAVORS?.trim() || "forever",
   );
+  const guildRoster = parseGuildRosterConfig();
 
   if (channelIds.size === 0) {
     throw new Error("DISCORD_CHANNEL_IDS must contain at least one channel ID");
@@ -114,5 +196,6 @@ export function loadConfig(): Config {
     helpCommandName,
     channelIds,
     flavors,
+    ...(guildRoster ? { guildRoster } : {}),
   };
 }

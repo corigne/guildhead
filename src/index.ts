@@ -21,6 +21,7 @@ import {
   buildReferenceResponse,
   buildSearchResponse,
 } from "./response.js";
+import { GuildRosterMonitor } from "./guild-roster.js";
 
 const config = loadConfig();
 const configuredWebhook = config.webhookUrl
@@ -126,6 +127,17 @@ client.once(Events.ClientReady, async (readyClient) => {
     } catch (error) {
       console.error(`Could not prepare webhook for channel ${channelId}:`, error);
     }
+  }
+
+  if (config.guildRoster) {
+    new GuildRosterMonitor(readyClient, config.guildRoster).start();
+    console.log(
+      `Guild roster monitor enabled for ${config.guildRoster.guildName}`,
+    );
+  } else {
+    console.log(
+      "Guild roster monitor disabled; configure Blizzard credentials to enable it",
+    );
   }
 });
 
