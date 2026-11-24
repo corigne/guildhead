@@ -56,11 +56,57 @@ remaining edge cases below still need real-world checks.
 1. Complete remaining manual checks such as a welcome on a genuine new member
    join, LFG leader DMs/expiry, the autocomplete dropdown in Discord, and
    refresh/unlink edge cases.
-2. Expand known-recipe validation before adding recipe lookup. The first public
+2. Add a dedicated guild-status channel once an authoritative in-game presence
+   source is available. The source investigation and delivery criteria are
+   recorded below. This remains blocked, not shipped.
+3. Expand known-recipe validation before adding recipe lookup. The first public
    sample is documented below. Profession skills are synced; free-form recipe
    notes remain self-reported.
-3. Add a useful handoff to established scheduling tools such as Raid-Helper.
+4. Add a useful handoff to established scheduling tools such as Raid-Helper.
    Do not build another raid calendar without a concrete unmet need.
+
+### Guild-status channel: source blocked
+
+The proposed channel shows actual WoW guild presence, not Discord availability.
+Prefer one persistent, edited roster message. Login/logout announcements can
+be considered separately after the source and roster view are validated.
+
+A read-only deployment check on November 24, 2026 UTC found:
+
+- The current 27-member Blizzard roster contained character references and
+  ranks, but no online/offline, presence, or last-seen fields.
+- The latest 100 messages in the configured synced-chat channel contained no
+  online/offline or login/logout wording. This bounded sample is not proof
+  that the integration can never emit such events.
+- Guildhead currently receives chat messages and polls roster snapshots. It
+  has no configured authoritative in-game presence feed.
+
+[Blizzard's integration guide](https://news.blizzard.com/en-us/article/24296228/stay-connected-in-world-of-warcraft-with-discord)
+describes chat mirroring, not a bot-accessible presence stream.
+[Forever API notes](https://mhuijskens.com/WoWForever/Api/) describe delayed
+roster/profile snapshots; profile timestamps are not a live session signal.
+The deployment probe saved only aggregate counts, message shapes, and field
+names, not message content, player identifiers, or credentials.
+
+The next prerequisite is a supported native presence event, or an explicitly
+configured addon/companion bridge supplying full in-game roster snapshots.
+Do not treat chat activity, Discord availability, profile updates, or silence
+as proof that a character is online or offline.
+
+Before delivery, the source must establish:
+
+- The correct guild and stable character identities.
+- An initial full snapshot and freshness/heartbeat information, not only
+  login/logout transitions that can be missed during downtime.
+- Authenticated source identity and safe handling of duplicate or late data.
+- An explicit unknown/stale state after source loss or restart. Source failure
+  must not mark everyone offline; roster membership changes remain separate.
+- A configured destination and saved message reference, with bounded output
+  and no repeated startup announcements.
+
+No presence intent, player tracking, new Discord channel, or production
+configuration was enabled by this investigation. Discord-presence tracking
+would be a separate, explicitly opted-in feature.
 
 ### Recipe API evidence
 
