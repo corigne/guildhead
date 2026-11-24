@@ -81,6 +81,13 @@ A read-only deployment check on November 24, 2026 UTC found:
 - Guildhead currently receives chat messages and polls roster snapshots. It
   has no configured authoritative in-game presence feed.
 
+A broader follow-up checked 25 documented API routes. Character `/status`
+returned only links, an identity ID, and `is_valid`, not session presence.
+Ruleset detail returned `status.type: UP`; that is ruleset/server availability,
+not the status of guild members. Guild endpoints advertised
+`Cache-Control: public, max-age=10800`, which permits three hours of HTTP
+caching and is not a guarantee of any particular update interval.
+
 [Blizzard's integration guide](https://news.blizzard.com/en-us/article/24296228/stay-connected-in-world-of-warcraft-with-discord)
 describes chat mirroring, not a bot-accessible presence stream.
 [Forever API notes](https://mhuijskens.com/WoWForever/Api/) describe delayed
@@ -108,6 +115,50 @@ No presence intent, player tracking, new Discord channel, or production
 configuration was enabled by this investigation. Discord-presence tracking
 would be a separate, explicitly opted-in feature.
 
+### Broader API evidence
+
+On November 24, 2026 UTC, 25 bounded read-only GET requests all returned HTTP
+200 in the configured US region. The sample covered one guild and one
+opted-in, roster-confirmed main character. Only aggregate counts, field names,
+and response metadata were retained. No raw player profiles, names, IDs,
+tokens, or chat messages were saved by the probe.
+
+| API family | Observed data | Limit |
+| --- | --- | --- |
+| Guild profile and roster | Membership, ranks, ruleset, faction, crest reference | No member presence |
+| Guild activity and achievements | Guild/link metadata only | No activity events or achievement entries in this sample |
+| Character profile and status | Profile links, level/item-level fields, identity validity | A profile timestamp or `is_valid` does not prove online status |
+| Equipment and statistics | Equipped items/sets, stats, enchantments, weapon and defensive fields | Snapshot data, not live combat telemetry |
+| Specializations | Specialization groups and selected talents | Sample does not establish every class/build contract |
+| Professions and recipes | Primary/secondary skills, 113 known-recipe references, one recipe detail | Not yet a production recipe-search contract |
+| Reputations and PvP | Standing references, honorable kills/rank, battleground statistics | No live PvP or player location feed |
+| Quests and achievements | In-progress/completed quest entries, achievement criteria and recent events | Not a live quest or session event stream |
+| Character media | Four image asset references | Images were not downloaded; other characters may return 404 |
+| Raid/dungeon encounters | Links/character metadata only | No completion history in this sample |
+| Rulesets | Four ruleset references; selected ruleset reported `UP` | Server availability, not player availability; advertised cache lifetime 30 seconds |
+| Auction indexes | Both `/auctions/` and `/auctions/index` returned 15 house references | Auction listings/prices were not downloaded |
+| Static professions and recipe detail | Profession index plus crafted item/quantity, description, media and reagents | Static alias resolved to `static-1.60.1_70399-forever-us` |
+
+Useful unofficial references:
+
+- [Forever API notes](https://mhuijskens.com/WoWForever/Api/).
+- [Community findings on Blizzard's API forum](https://us.forums.blizzard.com/en/blizzard/t/wow-forever-api-what-works-so-far-plus-a-ts-client/60334).
+- [TypeScript client character/guild notes](https://github.com/Pinta365/blizzard_api/blob/0f66238c7a4e4269cfcd37c19c76fe6062d9f4ba/docs/content/02-forever/02-characters-and-guilds.md)
+  and [open questions](https://github.com/Pinta365/blizzard_api/blob/0f66238c7a4e4269cfcd37c19c76fe6062d9f4ba/docs/content/02-forever/05-open-questions.md).
+- [Python SDK character models](https://github.com/SideQuest-Guild/wow-forever-sdk/blob/cd48fdbe9d66c43eea88628be667972a16edfb98/src/wow/models/character.py),
+  which independently distinguish character validity from presence.
+
+The community sources report logout-based character snapshots. This probe
+did not perform a controlled login/logout timing test or establish freshness
+guarantees. Documentation also differs on auction index paths; both forms
+above worked in this sample, not necessarily every region or future version.
+HTTP 200 alone does not establish useful data or a stable contract.
+
+Account/protected-character routes require a fresh authorized user token and
+were not probed. The official website's internal GraphQL routes were not used
+as an alternate presence source. No SDK was installed and production settings
+were unchanged.
+
 ### Recipe API evidence
 
 A read-only check on November 23, 2026 validated 113 recipe references across
@@ -122,6 +173,10 @@ or recipe-detail responses. Recipe lookup still needs runtime validation,
 focused fixtures, and a defined user command. Future requests should construct
 fixed regional endpoints rather than follow upstream URLs blindly. No player
 identifiers, recipe lists, or tokens were saved during this probe.
+
+The broader follow-up above also inspected one known recipe's detail response.
+It exposed crafted-item and quantity fields, description, media and reagents.
+That confirms a useful next validation target, not a finished recipe parser.
 
 ## Known limits
 
