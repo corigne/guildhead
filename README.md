@@ -33,11 +33,9 @@ To host a new copy on Linux, have Docker Compose, curl, and an initialized
 curl -fsSL https://raw.githubusercontent.com/corigne/guildhead/main/scripts/install.sh | sh
 ```
 
-This downloads and runs a [fixed version of the setup helper](https://github.com/corigne/guildhead/blob/bb454aae3f79dc75122023d7db779418dfd8a26c/scripts/setup.sh);
-review it first if you prefer. It walks through Discord setup, keeps the token
-encrypted, and starts the published bot. Try `/help` once it connects.
-Existing installations are left alone. See the [hosting guide](docs/operations.md)
-for manual setup, optional features, and starting again after a reboot.
+Setup walks you through connecting your bot to Discord. Try `/help` once it
+connects. See the [hosting guide](docs/operations.md) for manual setup,
+optional features, and starting again after a reboot.
 
 ## More
 
