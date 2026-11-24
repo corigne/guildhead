@@ -204,6 +204,20 @@ For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.12.1`
 instead of `latest` when repeatable rollbacks matter. Pull the replacement
 before stopping the working container.
 
+With the pinned `image` configured for the `bot` service, deploy without a
+local image build:
+
+```sh
+docker compose pull bot
+docker compose up -d --no-build bot
+docker compose logs --tail=80 bot
+```
+
+The v1.12.1 release checkpoint and validation boundaries are recorded in the
+[roadmap](roadmap.md#release-checkpoint-v1121). Keep its tested tag unchanged
+when publishing documentation-only checkpoint updates; documentation on
+`main` may be newer than the running image.
+
 Rollback means running the previous image with a compatible state backup.
 Restore that backup into a separate volume first. New fields may be ignored
 by an older release, but that release can drop them when rewriting state;
@@ -245,6 +259,12 @@ Cooking, Fishing, and First Aid assignments from opted-in members, including
 when some alt data is unavailable. Their Discord role definitions and synced
 skill/search data remain. Downgrading can reassign these roles; volume rollback
 does not undo Discord member changes.
+
+v1.12 adds optional dedicated LFG output without changing saved state shape.
+Existing announcements keep their saved channels after configuration changes.
+v1.12.1 adds leader-only close-group autocomplete, also without schema changes.
+Downgrades lose the new command behavior; do not move or recreate posts to
+compensate.
 
 Character linking adds a separate file and leaves existing roster, LFG, and
 crafter data alone. See the [linking guide](character-linking.md) for callback

@@ -180,5 +180,9 @@ unlink during an in-flight exchange, storage failures, and the real HTTP
 listener. Tests also cover main-picker pagination, owner binding, skill
 contracts, role deduplication and permission safety, background refresh,
 stale-guild filtering, failed-sync recovery, and unlink races.
-Fixtures are not a substitute for one real consent round-trip.
+
+At the November 23, 2026 checkpoint, a player confirmed successful login and
+main selection. A deployment resync verified primary-only role assignments
+while preserving secondary skills and unrelated roles. Refresh/unlink failure
+paths remain covered by tests and still need explicit real-world validation.
 Never paste authorization codes, state URLs, or user tokens into an issue.

@@ -29,11 +29,13 @@ and Wowhead links.
 - Guild-maintained crafter directory with find, register, and remove commands
 - Server-scoped crafter listings with multiple characters per profession
 - Opt-in Battle.net character ownership checks with automatic linking after authorization
-- Main-character selection, API-backed profession skills, and optional class/profession roles
+- Main-character selection, API-backed profession skills, and optional class/primary-profession roles
 - Optional, customizable welcome DMs explaining commands, voluntary linking, privacy, and source code
 - Preferred bot-commands channel with persistent pinned command guides
 - Server-scoped LFG groups with membership, size limits, and two-hour expiry
 - Updated LFG announcements and leader DMs when players join or leave
+- Optional dedicated LFG channel for browsing recent group announcements
+- Leader-only open-group suggestions for `/lfg close`, labeled `Activity (ID)`
 - Exact-name matching to avoid unrelated search results
 - 24-hour lookup cache to reduce Wowhead traffic
 - Docker and Docker Compose deployment

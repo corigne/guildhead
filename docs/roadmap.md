@@ -4,6 +4,23 @@ Guildhead prioritizes finding players, answering gameplay questions, and
 keeping guild communication useful in Discord. This is an ordered worklist,
 not a release-date promise.
 
+## Release checkpoint: v1.12.1
+
+Checkpointed November 23, 2026:
+[release and tag](https://github.com/corigne/guildhead/releases/tag/v1.12.1).
+
+The published baseline includes dedicated LFG announcements and close-group
+autocomplete. All 141 tests pass with exact 100% line, branch, and function
+coverage for covered modules; application wiring in `src/index.ts` remains
+explicitly excluded. Main/tag CI and container publication passed.
+
+A player has confirmed help, automatic tooltips, explicit search, roster,
+linking/main selection, crafters, pinned guides, and LFG operation. Deployment
+checks separately verified primary-only role reconciliation, welcome-demo
+delivery, dedicated-channel posting/same-post closing, and registered
+close-command autocomplete. Genuine join-triggered welcome delivery and the
+remaining edge cases below still need real-world checks.
+
 ## Shipped
 
 - Automatic Wowhead tooltips and explicit `/wow` lookups.
@@ -19,6 +36,9 @@ not a release-date promise.
   restarts. An optional dedicated LFG channel collects new announcements
   regardless of where a command was invoked; existing posts keep updating in
   their original channels.
+- `/lfg close group` suggestions show the caller's open groups in the current
+  server as `Activity (ID)`, with activity/ID filtering and unchanged leader
+  authorization.
 - Private roster lookup by name, class, level, and numeric rank, using saved
   snapshots with stale/unknown-age labels.
 - Opt-in Battle.net character ownership linking with automatic saving after
@@ -34,9 +54,8 @@ not a release-date promise.
 ## Next
 
 1. Complete remaining manual checks such as a welcome on a genuine new member
-   join, LFG leader DMs/expiry, and refresh/unlink edge cases. A player has
-   confirmed help, tooltips/search, roster, character setup, crafters, pins,
-   and LFG operation.
+   join, LFG leader DMs/expiry, the autocomplete dropdown in Discord, and
+   refresh/unlink edge cases.
 2. Expand known-recipe validation before adding recipe lookup. The first public
    sample is documented below. Profession skills are synced; free-form recipe
    notes remain self-reported.
