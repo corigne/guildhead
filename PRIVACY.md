@@ -1,125 +1,110 @@
 # Privacy policy
 
-Effective date: November 23, 2026
+Effective date: November 24, 2026
 
-Guildhead scans messages only in Discord channel IDs configured by the
-operator. Slash commands may be used in other channels where the application
-is available; crafter, LFG, roster, and character commands require a server.
+Guildhead is self-hosted. Your server's host controls its saved data, logs,
+backups, and retention. Contact that person for help with your data.
 
-## Data processed
+## Messages and lookups
 
-- Discord message content, solely to detect bracketed World of Warcraft names
-- Discord guild, channel, message, user, and webhook identifiers required to
-  receive messages and post tooltip cards
-- Item, quest, spell, NPC, and achievement names sent to Wowhead for lookup
+Guildhead scans messages only in the channels chosen by the host, looking for
+bracketed WoW names. It does not save scanned chat messages. Names used for
+tooltips and `/wow` searches are sent to Wowhead. Lookup results are kept in
+memory for 24 hours and disappear when the bot restarts.
 
-## Storage
+Slash commands can work in other channels where Discord allows them.
+Crafter, group, roster, and character commands require a server, not a DM.
+Welcome DMs do not give Guildhead access to your private conversations.
 
-Guildhead does not persist Discord message content. Wowhead lookup results are
-cached in process memory for 24 hours and disappear when the process restarts.
-When guild-roster monitoring is enabled, Guildhead stores a local roster
-snapshot containing character IDs, names, classes, levels and numeric guild
-ranks, plus the time of the last successful stored poll. This state detects
-changes and supplies private `/roster` results in the Discord server containing
-the configured announcement channel. Lookup filters are not persisted or sent
-to Blizzard. The state remains under the self-hosting operator's control.
-Crafter directory registrations store the Discord server ID, registering user
-ID, character name, profession, optional notes, and update time until the owner
-removes that listing. Pre-v1.8 registrations lack server IDs and are retained
-in a separate legacy list, excluded from searches. Re-registering does not
-delete that old record; contact the operator for legacy-data removal.
-Operational logs may contain
-Discord message IDs, character names and error details, but not bot tokens or
-webhook URLs.
+## What is saved
 
-Optional welcome DMs use Discord member-join events in configured servers,
-requiring Server Members Intent independently of role sync. Guildhead sends
-the operator's introduction to new human members only; it does not read their
-private messages. It stores no welcome recipients or delivery history and
-does not retry or publicly announce blocked DMs. Existing members are not
-backfilled after restart. Sent welcomes remain subject to Discord retention.
-The default message explains voluntary linking and points to the source code;
-operators can customize it for their server.
+| Feature | Saved information |
+| --- | --- |
+| Guild roster | Character IDs, names, classes, levels, numeric guild ranks, and check information used for searches and change announcements. |
+| Manual crafter listings | Server/user IDs, character names, professions, notes, and update times. |
+| Character linking | Server/user IDs, region, matching guild-character IDs/names, ownership check time, selected main, sharing choice, and public class/profession information. |
+| Groups | Server/group IDs, leader and member IDs, activity, size, expiry, and references to the public announcement. |
+| Pinned guides | Channel, message, and webhook IDs needed to update the guides. No member data is saved for this feature. |
 
-Optional pinned command guides store only channel, message, and webhook IDs
-in a separate reference file; no webhook tokens or member data are stored for
-this feature. Configured guides are refreshed in place and may be recreated
-if deleted. Disabling the feature leaves existing Discord posts untouched.
+Discord identifiers are also used to receive commands and deliver replies.
+Logs may include character names, message IDs, and error details. Credentials
+and webhook URLs are not intentionally logged. Roster search and group-close
+suggestion filters are not saved.
 
-Character linking is opt-in. The player authorizes `wow.profile` at Battle.net.
-An access token is used in memory to retrieve owned character IDs; it is not
-persisted. Only IDs and names matching the saved guild roster, region, Discord
-server/user IDs, and verification time are saved automatically after successful
-authorization. Public class and profession skill snapshots are cached for
-those characters and refreshed about every six hours. Blizzard returns the WoW character list, including unrelated
-alts; those unrelated entries, BattleTags, and Battle.net account IDs are not
-retained. Guildhead never receives passwords or authenticator codes and does
-not save access or refresh tokens. Pending logins expire after ten minutes or a
-restart; saved links have no automatic expiry and remain until unlinked.
-Ownership checks can become stale. `/character refresh` requires a new
-Battle.net authorization flow and replaces saved links only after a successful
-check; ownership is not refreshed in the background. Selecting a main with
-`/character main` stores that choice and opts into public crafter listings,
-which associate the user's Discord ID with their guild characters and API
-profession skills. Previously linked users are not published until they
-select a main. Manual recipe notes remain self-reported.
+Roster results are private and available only in the configured guild's
+server. Public group posts show signups; leaders receive DMs identifying
+members who join or leave. Manual crafter listings are searchable in the
+server where they were registered.
 
-When enabled by the operator, role sync uses the selected main's class and all
-linked guild characters' primary professions. Cooking, Fishing, and First Aid
-remain in skill snapshots and searches but do not assign roles. Legacy secondary
-profession role assignments are removed during reconciliation; role definitions
-are preserved. Member-update events and periodic
-reconciliation keep only those managed role assignments consistent; unrelated
-roles are not changed. This requires Server Members Intent and exposes Discord
-member/role metadata to the bot, not private messages or online presence.
-Unavailable public profession data is marked explicitly, not treated as proof
-that a character has no professions. Existing primary profession roles are preserved
-while any linked character's data is unavailable.
-`/character unlink` removes that user's saved link in the current
-server, stops synced crafter listings, cancels pending logins, and attempts to
-remove class/profession roles if the user opted into setup and role sync is
-enabled. Failed role cleanup is reported for officer assistance. Manually
-registered crafter entries are separate and must be removed with the craft
-command. Unlinking does not revoke the app at Battle.net.
-Battle.net permissions can be revoked separately in account settings.
-Unlinking does not remove copies in operator-managed backups; those follow the
-operator's backup retention policy.
+## Optional Battle.net linking
 
-LFG state stores the Discord server ID, group ID, leader and member user IDs,
-activity name, capacity, expiry time, and announcement channel/message/webhook
-IDs in the operator's data directory. No webhook tokens are stored in that
-state. Groups are visible through commands in their originating server.
-Close-command autocomplete suggests only the requesting leader's open groups
-in that server. Typed activity/ID filters are not stored.
-Creation announcements are public in the configured LFG channel, or the
-invoking channel when none is configured. Roster edits update the saved
-announcement in its original channel, including after configuration changes;
-command acknowledgements are private. Leaders receive a DM identifying users
-who join or leave their group. Failed DMs are not queued or replayed.
+Battle.net handles sign-in, and we never see your password or authenticator
+codes. You approve read-only WoW profile access. Guildhead briefly uses your
+authorization token to read the account's character list; it does not save
+access or refresh tokens.
 
-Leaving removes a user from the current roster; closing removes a group from
-active listings. Groups expire after two hours. Guildhead checks for expiry
-once a minute and keeps a final roster snapshot until its closed/expired
-announcement has been updated or the message is found to have been deleted.
-Failed edits retain that snapshot for retry, including across restarts.
-Discord announcements and leader DMs remain subject to Discord and server
-message-retention policies.
+Only characters matching the saved guild roster are retained. Unrelated alts,
+BattleTags, and Battle.net account IDs are not saved. Sign-in links work once
+for ten minutes; unfinished sign-ins also end when the bot restarts.
 
-## Third parties
+Saved links have no automatic expiry. Ownership is not rechecked in the
+background; `/character refresh` starts another Battle.net sign-in. A failed
+refresh keeps your previous saved link. Public class/profession information
+refreshes about every six hours, separately from ownership.
 
-Guildhead communicates with Discord, Blizzard/Battle.net, Wowhead, and Wowhead's
-image CDN. Public callback hosting may also pass through an operator's reverse
-proxy or Cloudflare. Do not log callback query strings, which contain short-lived
-authorization codes and login state. Their
-respective privacy policies govern data processed by those services.
+Choosing a main opts into public synced crafter listings, associating your
+Discord account with linked guild characters and their skills. Linking alone
+does not publish those listings. Manually entered recipe notes are not
+verified.
 
-## Self-hosted deployments
+If role sync is enabled, your main supplies one class role and linked guild
+characters supply primary-profession roles. Cooking, Fishing, and First Aid
+do not grant roles; earlier assignments are removed without deleting the roles.
+Guildhead uses Discord member/role information to keep those roles in step
+with your selection, not to monitor online presence. Unrelated roles are
+unchanged. Missing profession information does not cause existing primary
+profession roles to be removed.
 
-Each operator controls their Guildhead instance, configured channels, logs,
-retention, and infrastructure. Contact that operator for requests involving a
-self-hosted instance.
+## Removing data
 
-## Contact
+- `/character unlink` removes your link in this server, cancels unfinished
+  sign-ins, stops synced listings, and attempts to remove managed roles.
+  If role removal fails, ask an officer for help.
+- `/craft remove` removes your manual listing. Those listings are separate
+  from character linking.
+- Revoke Guildhead's Battle.net permission separately in your account
+  settings. Unlinking does not revoke it for you.
+- Ask the host about roster data, older manual registrations that are no
+  longer shown, logs, or backups. Registering again does not erase older,
+  hidden registrations.
 
-Report privacy concerns through the repository's GitHub issue tracker. Report
-sensitive security concerns using GitHub private vulnerability reporting.
+Leaving a group removes you from its signup list. Groups expire two hours
+after creation; closing a group removes it from active listings immediately.
+After a group ends, Guildhead may retain its final signup information until
+it can update the announcement or confirm the post was deleted. Public posts
+and DMs remain subject to Discord/server retention.
+
+Removing data from Guildhead does not erase copies in the host's backups.
+Those follow the host's retention policy.
+
+## Welcome DMs and pinned guides
+
+Optional welcomes go to new human members in configured servers. Guildhead
+stores no recipient list or delivery history, does not message existing
+members on startup, and does not retry blocked DMs or announce them publicly.
+Leaving and rejoining can trigger another welcome.
+
+Pinned guides are updated in place and may be recreated if deleted.
+Disabling guides leaves the existing Discord messages. Sent messages remain
+subject to Discord retention.
+
+## Other services and contact
+
+Guildhead communicates with Discord, Blizzard/Battle.net, Wowhead, and
+Wowhead's image service. Hosts may use a web proxy for Battle.net sign-in;
+it must not log private sign-in query strings. Those services have their own
+privacy policies.
+
+For privacy requests, contact your server's host. For project questions, use
+the [issue tracker](https://github.com/corigne/guildhead/issues). Report
+sensitive security concerns [privately](SECURITY.md), not in a public issue.

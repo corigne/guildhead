@@ -1,211 +1,56 @@
-# Running Guildhead
+# Host Guildhead
 
-Guildhead runs as one process per Discord application. Do not start a second
-copy with the same token while upgrading or testing: both processes will
-receive interactions and may try to change the same messages.
+This guide is for the person running Guildhead for a server. Members can use
+the [command guide](commands.md) and [character setup](character-linking.md)
+without doing any of this.
 
-## Configuration
+Run one copy per Discord bot token. Keep its saved data when replacing a
+container.
 
-Only `DISCORD_TOKEN` and `DISCORD_CHANNEL_IDS` are required. Channel IDs are
-comma-separated. They control automatic tooltip scanning and identify channels
-that need webhook output; slash commands work in other available channels.
+## Install
 
-Optional settings:
+You need Git, Docker with Compose, and a Discord application you control.
+This setup uses the published image rather than building it on your computer.
 
-| Setting | Default | Purpose |
-|---|---|---|
-| `WOWHEAD_FLAVORS` | `forever` | Comma-separated databases for automatic lookups |
-| `DISCORD_COMMAND_NAME` | `wow` | Explicit Wowhead lookup |
-| `DISCORD_HELP_COMMAND_NAME` | `help` | Private command help |
-| `DISCORD_CRAFT_COMMAND_NAME` | `craft` | Crafter directory |
-| `DISCORD_LFG_COMMAND_NAME` | `lfg` | Group finding |
-| `DISCORD_LFG_CHANNEL_ID` | unset | Public announcements for new LFG groups; defaults to invoking channel |
-| `DISCORD_ROSTER_COMMAND_NAME` | `roster` | Private saved-roster lookup |
-| `DISCORD_CHARACTER_COMMAND_NAME` | `character` | Private character linking |
-| `DISCORD_COMMAND_CHANNEL_ID` | unset | Preferred commands channel; automatically receives a pinned guide |
-| `DISCORD_COMMAND_POST_CHANNEL_IDS` | unset | Additional comma-separated channels for pinned Guildhead guides |
-| `GUILD_ROLE_SYNC_ENABLED` | `false` | Authoritative main-class/profession roles; needs Server Members Intent and Manage Roles |
-| `GUILD_WELCOME_ENABLED` | `false` | DM new human members in servers containing configured tooltip channels; needs Server Members Intent |
-| `GUILD_WELCOME_MESSAGE_FILE` | unset | UTF-8 welcome template; omitted uses the built-in neutral introduction |
-| `BLIZZARD_OAUTH_REDIRECT_URI` | unset | Enable Battle.net consent callback; requires roster configuration |
-| `DISCORD_WEBHOOK_URL` | unset | Use a supplied webhook instead of managing one per channel |
-| `GUILDHEAD_DATA_DIR` | `/data` | Persistent JSON state |
+```sh
+git clone https://github.com/corigne/guildhead.git
+cd guildhead
+cp .env.example .env
+chmod 600 .env
+${EDITOR:-nvim} .env
+```
 
-Command names must be distinct, 1-32 characters long, and use only lowercase
-letters, digits, underscores, or hyphens. Renaming a command replaces the old
-registration on restart.
+In the [Discord Developer Portal](https://discord.com/developers/applications),
+create a bot and enable **Message Content Intent**. Invite it with the `bot`
+and `applications.commands` scopes. In the channels it will use, grant:
 
-For roster announcements, provide both Blizzard credentials,
-`BLIZZARD_GUILD_NAME`, and `GUILD_ANNOUNCEMENT_CHANNEL_ID`. Optional roster
-settings are `BLIZZARD_REGION` (`us` by default), `GUILD_ANNOUNCE_EVENTS`
-(`joins`), and `GUILD_ROSTER_POLL_MINUTES` (`10`, allowed range 2-1440).
-Events are `joins`, `leaves`, and `ranks`.
+- View Channels and Read Message History.
+- Send Messages, Embed Links, and Attach Files.
+- Manage Webhooks for tooltip output in WoW-linked channels.
 
-The application can read `DISCORD_TOKEN_FILE` and `BLIZZARD_CLIENT_SECRET_FILE`
-instead of secret values. Mount those files read-only and pass their container
-paths. The bundled Compose file uses environment values; secret-file mounts
-need a local Compose override. Never commit credentials or post them in issues.
+Do not grant Administrator. Automatic tooltips need access to message content;
+they scan only the channels you select.
 
-The first successful roster poll establishes a baseline without announcements.
-Changes need two consecutive observations. These are delayed Blizzard
-snapshots, not live login/logout events.
+Set these required values in your private configuration:
 
-## Commands channel and pinned guides
+```dotenv
+DISCORD_TOKEN=your-bot-token
+DISCORD_CHANNEL_IDS=123456789012345678
+```
 
-`DISCORD_LFG_CHANNEL_ID` can independently route new public group announcements
-to an existing LFG channel. It must be in the group's server and allow sending
-messages/embeds (and Manage Webhooks if WoW-linked). Private command replies
-remain in the invoking channel. With no setting, announcements retain the
-original invoking-channel behavior. Existing posts keep their saved destination;
-changing the setting does not move or duplicate them. An invalid or inaccessible
-destination reports a failed announcement privately while retaining the group;
-it never silently posts in a different channel. Help and pinned guides link to
-the configured LFG channel so members can browse recent posts.
+Use comma-separated channel IDs for multiple tooltip channels. Enable Discord
+developer mode to copy IDs.
 
-Set `DISCORD_COMMAND_CHANNEL_ID` to an existing bot-commands channel. Guildhead
-points `/help`, its pinned guides, and the default welcome there. This is
-guidance, not a command restriction: slash commands still work elsewhere where
-server permissions allow them. No channels are created or renamed.
-
-The preferred channel automatically receives a pinned Guildhead embed. Add
-other existing channels with `DISCORD_COMMAND_POST_CHANNEL_IDS`. Guides contain
-full commands, features available without linking, optional linking/main
-selection, account-access limits, and source/privacy links. They are pinned
-posts, not repeated bottom-of-chat reposts.
-
-Grant View Channel, Read Message History, Send Messages, Embed Links, and
-Pin Messages in these channels. WoW-linked channels also need Manage Webhooks;
-Guildhead reuses its webhook there. The server may show a pin system message.
-No members are mentioned or notified by the guide itself.
-
-Message IDs are stored in `command-posts.json`. Restarting or upgrading edits
-the tracked guides instead of posting duplicates. A ten-minute check restores
-removed pins or deleted guides. Other pins/messages are untouched. Permission
-or network failures keep the existing references for retry. A change between
-webhook and ordinary-bot output fails for operator review rather than silently
-abandoning the old guide. Disabling configuration leaves existing posts in
-Discord; it does not delete or unpin them.
-
-## Optional welcome DMs
-
-Enable **Server Members Intent** in the Discord Developer Portal before setting
-`GUILD_WELCOME_ENABLED=true`. Welcomes are disabled by default, independent of
-character linking and role sync. Only new human joins in servers containing a
-configured `DISCORD_CHANNEL_IDS` channel receive a DM. Existing members are not
-messaged on startup; bots are skipped. Blocked DMs fail quietly without public
-fallback, retry, or stored delivery history. Leaving and rejoining can trigger
-another welcome.
-
-The default introduces Guildhead, commands usable without linking, optional
-linking/main selection, privacy limits, and the source repository. It makes no
-server-specific authorship claims. For your own text, mount a UTF-8 file
-read-only and set its container path. For example, merge this into a local
-Compose override, preserving any existing ports, mounts, and settings:
+For a new installation, create `compose.override.yaml` beside `compose.yaml`:
 
 ```yaml
 services:
   bot:
-    environment:
-      GUILD_WELCOME_ENABLED: "true"
-      GUILD_WELCOME_MESSAGE_FILE: /config/welcome.txt
-    volumes:
-      - ./welcome-config:/config:ro
+    image: ghcr.io/corigne/guildhead:1.12.1
 ```
 
-Create `welcome-config/welcome.txt` before starting. Templates support `{help}`,
-`{wow}`, `{craft}`, `{lfg}`, `{roster}`, and `{character}` for configured slash
-command names, `{commandChannel}` for the preferred channel (or a neutral
-fallback), plus `{source}` for the GitHub repository. For example,
-`{character} link` renders the full linking command. Other braces remain literal.
-Keep rendered text between 1 and 2000 characters; invalid or unreadable files
-stop startup. Mentions and automatic link previews are disabled.
-
-Keep custom wording accurate: never promise zero risk or require linking to
-participate. Explain that Battle.net handles sign-in, user tokens are not
-stored, and saved guild-character data remains until unlinked. Describe
-Guildhead as convenience, not pressure about progression or gameplay roles.
-Custom templates are deployment configuration, separate from the data-volume
-backup. Restart Guildhead after editing the template.
-
-## State and backups
-
-Compose mounts a named volume at `/data`. It contains:
-
-| File | Contents |
-|---|---|
-| `guild-roster-<guild-slug>.json` | Confirmed members, pending observations, last successful stored poll time |
-| `crafters.json` | Self-registered crafter listings |
-| `lfg.json` | LFG groups and announcement tracking |
-| `character-links.json` | Dated ownership, selected mains, public class/profession snapshots; no access tokens |
-| `command-posts.json` | Channel/message/webhook IDs of Guildhead's pinned command guides; no webhook tokens |
-
-Keep the volume when replacing a container. `docker compose down -v` removes
-it; do not use that command for routine upgrades.
-
-For a consistent backup, stop the bot briefly, archive the volume, and restart:
-
-```sh
-docker compose stop bot
-(umask 077; docker compose run --rm --no-deps -T --entrypoint tar bot \
-  -C /data -czf - . > "guildhead-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz")
-docker compose start bot
-```
-
-Check the archive with `tar -tzf <backup-file>` before relying on it. Keep a
-separate encrypted backup of credentials using your normal secret manager.
-State backups contain Discord identifiers and character data, but do not
-contain the bot token.
-
-Restore into a new volume, not over the only copy of existing state. This
-example uses the published image; replace `<version>` with the version you
-intend to run and `<backup-file>` with your archive:
-
-```sh
-docker volume create guildhead-restored
-docker run --rm -i --user root \
-  --mount source=guildhead-restored,target=/data \
-  --entrypoint sh ghcr.io/corigne/guildhead:<version> \
-  -c 'tar -xzf - -C /data && chown -R node:node /data' < <backup-file>
-```
-
-Use a new volume name for each restore attempt. Stop the existing bot before
-starting a replacement pointed at the restored volume. Check logs and commands
-before retiring the old container or its volume.
-
-## Upgrades and rollback
-
-### Low-impact local checks
-
-On Linux with a running user systemd manager, use `npm run test:low-impact`
-while gaming or doing other interactive work. This serializes Guildhead checks
-through a user lock, limits the whole check process tree to half of one CPU,
-sets a 1 GiB memory soft limit and 2 GiB hard limit with no swap, and lowers
-CPU/I/O scheduling priority. Compiler, image, and worker concurrency is also
-limited. Missing resource-control tools fail rather than falling back to an
-unrestricted run. To run another local check under the same limits, use
-`sh scripts/low-impact.sh npm run build`.
-
-These controls apply to child processes, not work submitted to an existing
-Docker daemon. Do not assume wrapping `docker build` caps its workers.
-Prefer CI-published images for deployment instead of building on the gaming
-machine. Never run multiple heavy checks or headless browsers concurrently
-with a game. These limits reduce contention; they do not prove or prevent
-every possible compositor/GPU failure.
-
-For source deployments, note the current commit, take a backup, then:
-
-```sh
-git pull --ff-only
-docker compose up -d --build
-docker compose logs --tail=80 bot
-```
-
-For image deployments, pin a version such as `ghcr.io/corigne/guildhead:1.12.1`
-instead of `latest` when repeatable rollbacks matter. Pull the replacement
-before stopping the working container.
-
-With the pinned `image` configured for the `bot` service, deploy without a
-local image build:
+If that file already exists, merge the image setting into it. Preserve its
+other settings.
 
 ```sh
 docker compose pull bot
@@ -213,119 +58,233 @@ docker compose up -d --no-build bot
 docker compose logs --tail=80 bot
 ```
 
-The v1.12.1 release checkpoint and validation boundaries are recorded in the
-[roadmap](roadmap.md#release-checkpoint-v1121). Keep its tested tag unchanged
-when publishing documentation-only checkpoint updates; documentation on
-`main` may be newer than the running image.
+Wait for login and command registration, then try `/help` and `[Hearthstone]`
+in a configured channel. Basic tooltips, manual crafter listings, and groups
+do not need Blizzard credentials.
 
-Rollback means running the previous image with a compatible state backup.
-Restore that backup into a separate volume first. New fields may be ignored
-by an older release, but that release can drop them when rewriting state;
-do not assume a downgrade preserves new features. Keep the pre-upgrade backup.
+Already running with `docker run`? Do not start a second copy with Compose.
+Back up the existing data and arrange to reuse or restore it first: Compose
+may use a different volume name.
 
-v1.6 can read v1.5 LFG files without resetting groups. It adds announcement
-tracking to the same file. Before downgrading, keep a backup: v1.5 ignores that
-tracking and drops it on its next write. Existing pre-v1.6 announcements remain
-snapshots; do not reset group state to try to recover their message IDs.
+## Configuration
 
-v1.7 adds an optional roster check timestamp without changing the state version
-or resetting confirmed members and pending observations. Older files remain
-usable; `/roster` reports unknown age until a successful poll stores the time.
-Older releases ignore the timestamp and may drop it on their next write.
+All features below are optional. Set their values in your private
+configuration and recreate the container to apply changes.
 
-v1.8 reads old crafter files without assigning their entries to a server. On
-the first successful registration or removal it writes schema v2, preserving
-unscoped entries in `legacyListings`. Searches do not migrate or rewrite the
-file. Owners re-register in the appropriate server; old entries are never
-automatically exposed there. Previous releases reject schema v2 rather than
-misinterpreting the new scope. To downgrade, restore the pre-upgrade backup
-into a separate volume. Do not change the version number by hand.
+| Feature | Setting | Default |
+| --- | --- | --- |
+| Tooltip databases | `WOWHEAD_FLAVORS`: choose `forever`, `retail`, `classic`, or `cata`, comma-separated | `forever` |
+| Preferred commands channel | `DISCORD_COMMAND_CHANNEL_ID` | Unset |
+| Additional pinned-guide channels | `DISCORD_COMMAND_POST_CHANNEL_IDS`, comma-separated | Unset |
+| New LFG announcements | `DISCORD_LFG_CHANNEL_ID` | Channel where the group was created |
+| Welcome DMs | `GUILD_WELCOME_ENABLED` | `false` |
+| Custom welcome | `GUILD_WELCOME_MESSAGE_FILE`, a mounted text file | Built-in introduction |
+| Class/primary-profession roles | `GUILD_ROLE_SYNC_ENABLED` | `false` |
+| Character sign-in page | `BLIZZARD_OAUTH_REDIRECT_URI` | Linking disabled |
+| Supplied output webhook | `DISCORD_WEBHOOK_URL` | Guildhead manages its own |
 
-v1.10 adds optional main-selection and public profile fields to character links.
-Old links remain private until their owner selects a main. Older releases can
-read those links but may drop the new fields when writing. Profession choices
-now include gathering, Fishing, and First Aid; older releases reject crafter
-files containing those names. Use a pre-upgrade backup when downgrading.
-Discord role definitions and member assignments are not part of the data
-archive: disable role sync first and arrange any role rollback separately.
+To rename commands, use `DISCORD_COMMAND_NAME`, `DISCORD_HELP_COMMAND_NAME`,
+`DISCORD_CRAFT_COMMAND_NAME`, `DISCORD_LFG_COMMAND_NAME`,
+`DISCORD_ROSTER_COMMAND_NAME`, or `DISCORD_CHARACTER_COMMAND_NAME`.
+Names must be different and contain 1-32 lowercase letters, digits,
+underscores, or hyphens. The new name replaces the old one.
 
-v1.11 adds a separate command-post reference file. Older releases ignore it;
-the pinned Discord messages remain. Restore references with the volume when
-migrating the same bot so it reuses its existing guides. Host-local channel
-configuration and welcome templates still require separate backups.
+Credentials must stay out of Git and shared logs. The bot also supports
+`DISCORD_TOKEN_FILE` and `BLIZZARD_CLIENT_SECRET_FILE` for mounted secret
+files; adapt the bundled Compose settings if using those instead of values.
+Never post bot tokens, webhook URLs, or sign-in links when asking for help.
 
-v1.11.1 assigns only primary profession roles. Reconciliation removes prior
-Cooking, Fishing, and First Aid assignments from opted-in members, including
-when some alt data is unavailable. Their Discord role definitions and synced
-skill/search data remain. Downgrading can reassign these roles; volume rollback
-does not undo Discord member changes.
+### Guild roster
 
-v1.12 adds optional dedicated LFG output without changing saved state shape.
-Existing announcements keep their saved channels after configuration changes.
-v1.12.1 adds leader-only close-group autocomplete, also without schema changes.
-Downgrades lose the new command behavior; do not move or recreate posts to
-compensate.
+Create a [Battle.net developer application](https://develop.battle.net/access/clients)
+and configure:
 
-Character linking adds a separate file and leaves existing roster, LFG, and
-crafter data alone. See the [linking guide](character-linking.md) for callback
-hosting and consent setup. `compose.override.yaml` is ignored by Git and can
-hold non-secret host-local ports and callback configuration.
+```dotenv
+BLIZZARD_CLIENT_ID=your-client-id
+BLIZZARD_CLIENT_SECRET=your-client-secret
+BLIZZARD_REGION=us
+BLIZZARD_GUILD_NAME=Your Guild Name
+GUILD_ANNOUNCEMENT_CHANNEL_ID=123456789012345678
+```
+
+`GUILD_ANNOUNCE_EVENTS` accepts `joins`, `leaves`, and `ranks`, comma-separated;
+the default is `joins`. `GUILD_ROSTER_POLL_MINUTES` defaults to `10` and accepts
+2-1440 minutes. Supported regions are `us`, `eu`, `kr`, and `tw`.
+
+The first successful check saves the starting roster without announcing old
+joins. Later changes need two checks before announcement. Rank names are not
+available, so announcements use numbers.
+
+Roster search and character linking work only in the Discord server containing
+the announcement channel. Blizzard information can lag behind the game; this
+is not an online/offline feed.
+
+### Commands channel and pinned guides
+
+Set `DISCORD_COMMAND_CHANNEL_ID` to an existing channel for command guidance
+and a pinned introduction. Add more guide channels with
+`DISCORD_COMMAND_POST_CHANNEL_IDS`.
+
+Grant Pin Messages as well as the usual read/send permissions. Guides update
+in place; a ten-minute check repairs missing pins or deleted guides. Other
+pins are untouched. Disabling the feature leaves existing guides in Discord.
+
+No channels are created. The preferred channel does not restrict commands in
+other channels where Discord permissions allow them.
+
+### LFG destination
+
+Set `DISCORD_LFG_CHANNEL_ID` to an existing, sendable channel in the same
+server. New groups post there, while private replies stay with the command.
+Existing posts remain in their original channels after a setting change.
+
+If posting fails, the group is still saved and the leader gets a private
+warning. Guildhead does not silently choose another channel.
+
+### Welcome DMs
+
+Enable **Server Members Intent** in the Discord Developer Portal, then set
+`GUILD_WELCOME_ENABLED=true`. Only new human members joining servers with a
+configured tooltip channel receive a welcome. Existing members are not
+messaged on startup. Blocked DMs fail quietly without a public fallback.
+
+For custom text, create `welcome-config/welcome.txt` and merge this into your
+Compose override:
+
+```yaml
+services:
+  bot:
+    environment:
+      GUILD_WELCOME_MESSAGE_FILE: /config/welcome.txt
+    volumes:
+      - ./welcome-config:/config:ro
+```
+
+Supported placeholders are `{help}`, `{wow}`, `{craft}`, `{lfg}`, `{roster}`,
+`{character}`, `{commandChannel}`, and `{source}`. For example,
+`{character} link` becomes the full command name. Keep the finished message
+between 1 and 2000 characters. An unreadable or invalid template stops startup.
+Mentions and automatic link previews are disabled.
+
+Keep the introduction accurate: linking is optional, Battle.net handles
+sign-in, and members can unlink later. Restart after editing a mounted welcome
+file. Back it up separately from the bot's saved data.
+
+### Character-linking setup
+
+Finish roster setup first. Register an exact HTTPS callback address in your
+Battle.net application, for example:
+
+```text
+https://guildhead.example.org/oauth/battlenet/callback
+```
+
+Set `BLIZZARD_OAUTH_REDIRECT_URI` to the same address. Merge this into your
+Compose override, preserving the image setting and other configuration:
+
+```yaml
+services:
+  bot:
+    ports:
+      - "127.0.0.1:8787:8787"
+```
+
+Use a reverse proxy with a valid HTTPS certificate. For example, with Caddy:
+
+```caddyfile
+guildhead.example.org {
+    log {
+        output discard
+    }
+    handle /oauth/battlenet/callback {
+        reverse_proxy 127.0.0.1:8787
+    }
+    handle {
+        respond "Not found." 404
+    }
+}
+```
+
+Replace the example hostname in both places. Do not expose port 8787 directly,
+put a login challenge in front of this address, or log its query strings:
+they contain private, short-lived sign-in information. Recreate the bot after
+changing configuration, then try `/character link` in Discord.
+
+### Class and profession roles
+
+Enable **Server Members Intent**, grant Manage Roles, and put Guildhead's
+bot role above the class/profession roles it should manage. Then set
+`GUILD_ROLE_SYNC_ENABLED=true`. Character linking must already be configured.
+
+Members opt in by selecting a main. Existing matching role names are reused;
+missing roles are created without extra permissions. Duplicate names,
+roles with elevated permissions, and roles the bot cannot edit need an
+officer's attention. Guildhead does not rename, delete, or reorder roles.
+
+Keep other bots' class/profession menus consistent with this setup.
+Guildhead may undo conflicting choices for opted-in members, but it does not
+edit those bots' menus. Other preference and guild-rank roles stay separate.
+See [character setup](character-linking.md#how-roles-work) for member-facing
+details.
+
+## Backups and upgrades
+
+Compose keeps saved rosters, crafter listings, groups, character links, and
+pinned-guide references in a named volume at `/data`. Keep that volume.
+**Do not use `docker compose down -v` for routine upgrades:** it deletes
+the saved data.
+
+For a consistent backup, this example stops the bot, checks the archive,
+and starts the bot again even if archiving fails:
+
+```sh
+(
+  set -eu
+  umask 077
+  backup="guildhead-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+  trap 'docker compose start bot' 0
+  docker compose stop bot
+  docker compose run --rm --no-deps -T --entrypoint tar bot \
+    -C /data -czf - . > "$backup"
+  tar -tzf "$backup"
+)
+```
+
+Check that the backup command succeeded before relying on the archive.
+Back up custom welcomes and non-secret host settings separately. Keep
+credential backups encrypted. Saved-data backups contain member identifiers
+and character data, so restrict access and choose a retention period.
+
+To upgrade, take a backup, update the image version in your override, then:
+
+```sh
+docker compose pull bot
+docker compose up -d --no-build bot
+docker compose logs --tail=80 bot
+```
+
+Use a versioned image instead of `latest` so you know what you are running.
+Check the [release notes](https://github.com/corigne/guildhead/releases)
+before upgrading or downgrading. Older releases may not preserve newer data.
+
+Restore backups into a new volume, never over the only existing copy.
+Discord role assignments and posted messages are outside the data backup;
+restoring files will not undo those changes. Preserve guide references when
+moving the same bot so it can reuse its posts.
 
 ## Troubleshooting
 
-**No slash commands:** check the startup log for registration errors and verify
-that the app is installed in the server. Discord may cache the command picker.
-Command-name collisions can be avoided with the settings above.
+| Problem | Check |
+| --- | --- |
+| Commands are missing | Bot installation, command registration in the logs, Discord permissions, or a command-name conflict. |
+| Tooltips cannot post | Manage Webhooks in linked channels; Send Messages, Embed Links, and Attach Files elsewhere. |
+| Roster is missing or old | Blizzard credentials, guild name/region, announcement channel access, and recent check failures. Searching does not force a refresh. |
+| A group is missing | It may have expired, closed, or been created in another server. |
+| A group post is outdated | Use `/lfg show` to check membership; inspect channel permissions. Failed edits retry, but deleted posts are not recreated. |
+| A leader gets no DM | Their DM settings may block it. The signup still counts; missed notifications are not replayed. |
+| Roles do not update | Main selected, role sync enabled, Server Members Intent, Manage Roles, and bot role position. |
+| The bot cannot save data | Its `/data` directory must be writable by the container's user, UID 1000 in the published image. |
 
-**Tooltips read messages but cannot post:** linked channels reject ordinary bot
-messages. Grant View Channel and Manage Webhooks there. In normal channels,
-grant Send Messages and Embed Links.
-
-**Roster monitoring does not start:** both Blizzard credentials are required.
-Check guild spelling, region, announcement channel access, and HTTP errors in
-the logs. Guildhead never prints credentials intentionally; still review logs
-before sharing them.
-
-**Permission denied under `/data`:** the container runs as the `node` user
-(UID 1000 in the bundled image). Bind mounts and restored volumes must be
-writable by that user. Repair ownership only on Guildhead's data directory,
-not on a shared parent directory.
-
-**Roster lookup unavailable:** `/roster` needs the existing Blizzard roster
-configuration and a successful initial poll. It only works in the server
-containing the configured announcement channel. The bot must still be able to
-fetch that channel to verify the server, even when lookup runs elsewhere in
-that server.
-
-**Roster lookup is stale:** the saved snapshot has not advanced for more than
-two polling intervals. Check poll errors, credentials, Blizzard availability,
-and announcement delivery permissions. A failed poll or announcement delivery
-does not advance the stored timestamp. Searching the roster never fetches new
-Blizzard data or changes the existing confirmation rules.
-
-**Corrupt JSON state:** stop the bot and copy the affected file for inspection.
-Restore a known-good backup. Do not delete the file merely to silence an error:
-resetting roster state loses its baseline and resetting directories loses
-registrations.
-
-**LFG group not found:** groups are scoped to a Discord server and expire after
-two hours. A leader leaving also closes the group. Old public posts are not
-evidence that a group remains joinable.
-
-**LFG post is stale:** new groups save their announcement message ID and update
-that post after changes. Failed edits retry once a minute; `/lfg show` reads
-stored membership even if Discord delivery fails. Check channel permissions,
-webhook access, and logs. A deleted post is not recreated. Posts made before
-v1.6 cannot be updated automatically because those releases did not store their
-message IDs.
-
-**No leader DM:** the leader may block DMs from the bot or server members. The
-signup still succeeds. Notification delivery is best effort, and old
-notifications are not replayed after restarts.
-
-## Development checks
-
-Run `npm test` and `docker build .` before publishing. The test command enforces
-100% line, branch, and function coverage for source modules other than
-`src/index.ts`. That exclusion includes process wiring and some Discord
-transport code; unit coverage is not proof of a successful live Discord flow.
+If saved files are damaged, stop the bot, keep a copy, and restore a known-good
+backup. Do not delete saved data just to hide an error. Review logs for private
+information before sharing them.
