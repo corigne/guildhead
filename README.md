@@ -30,11 +30,7 @@ To host a new copy on Linux, have Docker Compose, curl, and an initialized
 `pass` password store ready. Run the guided setup:
 
 ```sh
-sh -c 'file=$(mktemp) || exit 1
-curl -fsSL https://raw.githubusercontent.com/corigne/guildhead/bb454aae3f79dc75122023d7db779418dfd8a26c/scripts/setup.sh -o "$file" && sh "$file"
-status=$?
-rm -f -- "$file"
-exit "$status"'
+curl -fsSL https://raw.githubusercontent.com/corigne/guildhead/main/scripts/install.sh | sh
 ```
 
 This downloads and runs a [fixed version of the setup helper](https://github.com/corigne/guildhead/blob/bb454aae3f79dc75122023d7db779418dfd8a26c/scripts/setup.sh);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
-  existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync,
+  existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync,
   symlinkSync, writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,6 +25,10 @@ if (name === "pass") {
     output(process.env.SETUP_TEST_TOKEN + "\\nA note, not part of the token.");
   }
 } else if (name === "curl") {
+  if (process.env.SETUP_TEST_DOWNLOAD) {
+    fs.copyFileSync(process.env.SETUP_TEST_DOWNLOAD, args[args.indexOf("-o") + 1]);
+    process.exit(process.env.MOCK_NETWORK_FAILURE ? 7 : 0);
+  }
   fs.readFileSync(0, "utf8");
   if (process.env.MOCK_NETWORK_FAILURE) process.exit(7);
   output(process.env.MOCK_HTTP_STATUS || "200");
@@ -103,6 +107,38 @@ function fixture() {
     clean: () => rmSync(root, { recursive: true, force: true }),
   };
 }
+
+test("piped installer forwards arguments, preserves failures, and cleans temporary downloads", () => {
+  const f = fixture();
+  try {
+    const downloads = join(f.root, "downloads");
+    const payload = join(f.root, "payload.sh");
+    mkdirSync(downloads);
+    writeFileSync(payload, "exit 23\n");
+    for (const scenario of [
+      { source: script, networkFailure: "", status: 0 },
+      { source: payload, networkFailure: "", status: 23 },
+      { source: script, networkFailure: "yes", status: 7 },
+    ]) {
+      const result = spawnSync("sh", ["-s", "--", "--help"], {
+        input: readFileSync(resolve("scripts/install.sh"), "utf8"),
+        encoding: "utf8",
+        timeout: 30_000,
+        env: {
+          ...process.env,
+          PATH: `${join(f.root, "bin")}:${process.env.PATH}`,
+          TMPDIR: downloads,
+          SETUP_TEST_ROOT: f.root,
+          SETUP_TEST_DOWNLOAD: scenario.source,
+          MOCK_NETWORK_FAILURE: scenario.networkFailure,
+        },
+      });
+      assert.equal(result.status, scenario.status, result.stderr);
+      if (scenario.status === 0) assert.match(result.stdout, /Guildhead guided setup/);
+      assert.deepEqual(readdirSync(downloads), []);
+    }
+  } finally { f.clean(); }
+});
 
 test("guided setup keeps credentials out of configuration and supports prepare-only mode", () => {
   const f = fixture();
