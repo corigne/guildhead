@@ -159,6 +159,34 @@ were not probed. The official website's internal GraphQL routes were not used
 as an alternate presence source. No SDK was installed and production settings
 were unchanged.
 
+### Additional feature candidates
+
+A second November 24 survey made 33 bounded GET requests, including one
+repeated index read: 31 returned HTTP 200 and two returned 404. Populated
+responses support the candidates below, not finished feature contracts.
+Profile checks still covered only the same opted-in US main.
+
+| Suggested order | Proposed feature | Evidence and delivery boundary |
+| --- | --- | --- |
+| 1 | Find a crafter for an exact recipe, with reagent quantities | Blacksmithing exposes 507 recipe references in 33 categories; earlier probes confirmed character-known recipes and recipe details. Catalog entries alone do not prove obtainability or that a player knows the recipe. |
+| 2 | Find guildmates sharing a quest or zone | 138 quest-area references, a populated area catalog, active quest IDs and three quest details with rewards. Snapshot-based matching needs visible age and explicit sharing; all three sampled quest prerequisites were empty, so do not claim attunement or eligibility checks. |
+| 3 | Rich character inspection card | Previously verified gear/stats/talents/media, plus populated appearance data. Keep it informational, not an automatic gear score or role gate. |
+| 4 | Reputation goal/progress helper | 56 faction references and eight standing bands with numeric minimum/maximum thresholds; character reputations were verified in the first survey. No live reputation tracking implied. |
+| 5 | Collection checklist or shared collection goals | 141 mount references and populated mount, pet, toy and appearance collections. Ownership scope and item/appearance mapping need validation; the sampled mount lacked acquisition-source fields. |
+| 6 | Optional achievement/level milestone digest | 176 achievement references and a populated criterion; character achievement events and roster levels were previously verified. Any announcements need explicit opt-in and snapshot deduplication, not live-event claims. |
+
+Keep Wowhead as the existing lookup source. The item-search sample returned
+three results with only one exact name match; preserve exact-match filtering.
+The sampled Fireball spell and Hogger creature IDs returned 404, and their
+name searches returned no results. This does not establish that all spells
+or creatures are unavailable.
+
+Both dungeon journal indexes were metadata-only, and the sampled character
+had no title entries. Do not promise boss loot tables, dungeon completion
+checks, reliable prerequisite graphs, or a full acquisition guide from these
+responses. No new commands, recurring collection, SDK dependencies, or
+production configuration were added.
+
 ### Recipe API evidence
 
 A read-only check on November 23, 2026 validated 113 recipe references across
