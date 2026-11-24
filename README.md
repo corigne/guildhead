@@ -18,17 +18,27 @@ find crafters, organize groups, and connect their characters to Discord.
 - **Optional character linking** with main selection and class/profession roles.
 - **Welcome messages and pinned guides** to help members get started.
 
-Linking your Battle.net account is optional. Battle.net handles sign-in,
-and we never see your password.
+Linking your Battle.net account is optional. Sign-in happens on Battle.net;
+Guildhead never receives your password.
 
 ## Get started
 
-- **Guild members:** see the [command guide](docs/commands.md) and
-  [character setup](docs/character-linking.md).
-- **Server hosts:** follow the [installation and configuration guide](docs/operations.md)
-  to run your own copy.
+Guild members can use the [command guide](docs/commands.md) and
+[character setup](docs/character-linking.md).
 
-Command details and feature settings live in those guides.
+To host a new copy on Linux, have Docker Compose, curl, and an initialized
+`pass` password store ready. Run the guided setup:
+
+```sh
+git clone https://github.com/corigne/guildhead.git
+cd guildhead
+sh scripts/setup.sh
+```
+
+The helper walks through Discord setup, keeps the token encrypted, and starts
+the published bot. Try `/help` once it connects. Existing installations are
+left alone. See the [hosting guide](docs/operations.md) for requirements,
+manual setup, optional features, and starting again after a reboot.
 
 ## More
 

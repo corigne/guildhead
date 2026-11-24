@@ -19,9 +19,9 @@ Selecting a main opts into public crafter listings for your linked guild
 characters and, when enabled, class/profession roles. Linking alone does not
 publish your crafter listings.
 
-Battle.net handles sign-in, and we never see your password or authenticator
-codes. Only open a login you started yourself. Keep the link private; it
-works once and expires after ten minutes.
+Battle.net handles sign-in; Guildhead never receives your password or
+authenticator codes. Only open a login you started yourself. Keep the link
+private; it works once and expires after ten minutes.
 
 If linking is unavailable, ask your server's host to complete the
 [character-linking setup](operations.md#character-linking-setup).

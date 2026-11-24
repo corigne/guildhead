@@ -12,6 +12,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 COPY test ./test
+COPY scripts ./scripts
 RUN npm test
 
 FROM base AS runtime

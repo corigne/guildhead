@@ -7,7 +7,55 @@ without doing any of this.
 Run one copy per Discord bot token. Keep its saved data when replacing a
 container.
 
+## Guided setup
+
+The setup helper is for a new Linux installation. You need Docker with Compose,
+curl, and [pass](https://www.passwordstore.org/) already initialized with your
+GPG key. It does not install system packages or ask for Administrator access.
+
+From the downloaded repository, run:
+
+```sh
+sh scripts/setup.sh
+```
+
+The helper explains how to create and invite a Discord bot, asks for your
+tooltip channels and an optional LFG channel, and checks that Discord accepts
+the token. If needed, pass prompts you to save the token with encryption.
+It then starts the published bot and waits for Discord login, command
+registration, and tooltip-channel readiness.
+
+The first setup covers tooltips, manual crafters, and groups. Blizzard features,
+welcome DMs, and role sync are separate optional steps below. No automatic
+channel creation or Battle.net sign-in setup is attempted.
+
+Setup is saved in `~/.config/guildhead` by default. From there you can:
+
+```sh
+sh "$HOME/.config/guildhead/setup.sh" status
+sh "$HOME/.config/guildhead/setup.sh" stop
+sh "$HOME/.config/guildhead/setup.sh" start
+```
+
+The token stays encrypted in pass. While running, the bot reads an unlocked
+copy from your private RAM-backed Linux runtime folder, not a plaintext
+configuration file. Stopping through the helper removes that unlocked copy.
+**After reboot, run `start` again** to unlock the token. The helper does not
+set up unattended boot or unlock your password store automatically.
+
+Running setup again keeps its existing files unchanged. Another Guildhead
+installation or leftover setup volume causes it to stop rather than adopt
+or overwrite data. Use your existing installation's instructions instead.
+Other hosts using the same token cannot be detected; stop them yourself.
+
+Use `sh scripts/setup.sh --help` for an alternate installation folder or
+prepare-only mode. To add optional features to a helper installation, edit
+its saved `compose.yaml` and run its `start` command. Do not start a second
+copy from the repository's Compose file.
+
 ## Install
+
+For manual installation, or if you do not use the setup helper:
 
 You need Git, Docker with Compose, and a Discord application you control.
 This setup uses the published image rather than building it on your computer.
@@ -68,8 +116,10 @@ may use a different volume name.
 
 ## Configuration
 
-All features below are optional. Set their values in your private
-configuration and recreate the container to apply changes.
+All features below are optional. In a manual installation, set values in your
+private configuration and recreate the container. With the helper, put
+settings under `environment` in its saved `compose.yaml`, add any needed
+ports/mounts there, and run the saved `setup.sh start`.
 
 | Feature | Setting | Default |
 | --- | --- | --- |
@@ -234,8 +284,8 @@ pinned-guide references in a named volume at `/data`. Keep that volume.
 **Do not use `docker compose down -v` for routine upgrades:** it deletes
 the saved data.
 
-For a consistent backup, this example stops the bot, checks the archive,
-and starts the bot again even if archiving fails:
+For manual Compose installations, this example stops the bot, checks the
+archive, and starts the bot again even if archiving fails:
 
 ```sh
 (
@@ -255,6 +305,11 @@ Back up custom welcomes and non-secret host settings separately. Keep
 credential backups encrypted. Saved-data backups contain member identifiers
 and character data, so restrict access and choose a retention period.
 
+For a helper installation, stop it with its saved `setup.sh stop`, back up
+the Docker volume named `guildhead-setup_data` with your volume-backup tool,
+then run the saved `setup.sh start`. Do not run the manual Compose commands
+above against a second installation.
+
 To upgrade, take a backup, update the image version in your override, then:
 
 ```sh
@@ -262,6 +317,10 @@ docker compose pull bot
 docker compose up -d --no-build bot
 docker compose logs --tail=80 bot
 ```
+
+For helper installations, change the image in the saved `compose.yaml` and
+run the saved `setup.sh start` instead. Keep the token encrypted in pass;
+back up the non-secret setup folder separately from the data volume.
 
 Use a versioned image instead of `latest` so you know what you are running.
 Check the [release notes](https://github.com/corigne/guildhead/releases)

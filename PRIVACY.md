@@ -38,10 +38,10 @@ server where they were registered.
 
 ## Optional Battle.net linking
 
-Battle.net handles sign-in, and we never see your password or authenticator
-codes. You approve read-only WoW profile access. Guildhead briefly uses your
-authorization token to read the account's character list; it does not save
-access or refresh tokens.
+Battle.net handles sign-in; Guildhead never receives your password or
+authenticator codes. You approve read-only WoW profile access. Guildhead
+briefly uses your authorization token to read the account's character list;
+it does not save access or refresh tokens.
 
 Only characters matching the saved guild roster are retained. Unrelated alts,
 BattleTags, and Battle.net account IDs are not saved. Sign-in links work once
