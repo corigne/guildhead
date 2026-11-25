@@ -1,0 +1,19 @@
+name: Documentation
+description: Report missing, incorrect, or confusing instructions.
+type: Task
+labels: ["documentation"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Which page or guide?
+      description: Share a link, page name, or in-bot help command.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What needs changing?
+      description: Explain what is unclear or incorrect and suggest a correction if you have one. Do not include credentials or private data.
+    validations:
+      required: true

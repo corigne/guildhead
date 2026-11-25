@@ -1,0 +1,25 @@
+name: Setup or usage help
+description: Ask a question about hosting or using Guildhead.
+type: Task
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [hosting guide](https://github.com/corigne/guildhead/blob/main/docs/operations.md),
+        [command guide](https://github.com/corigne/guildhead/blob/main/docs/commands.md), and existing issues first.
+        Never include tokens, webhook URLs, private messages, or populated configuration files.
+  - type: textarea
+    id: question
+    attributes:
+      label: What do you need help with?
+      description: Describe what you are trying to do and where you are stuck.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Include any relevant error message with secrets and private data removed.
+    validations:
+      required: true

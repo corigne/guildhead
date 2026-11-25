@@ -1,0 +1,36 @@
+name: Bug report
+description: Report something that is not working.
+type: Bug
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. Never include tokens, webhook URLs, private messages, or populated configuration files.
+        For vulnerabilities, use [private reporting](https://github.com/corigne/guildhead/security/advisories/new).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Explain what went wrong and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or action that triggered the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Guildhead version
+      description: Enter the version or image tag, or "unknown" if you cannot find it.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional details
+      description: Optional hosting details, screenshots, or relevant logs with secrets and private data removed.
